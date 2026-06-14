@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0a3d2e" />
+  <title>Cricket Oracle — One prediction a day</title>
+  <meta name="description" content="The daily cricket prediction game. One question a day. Build streaks, climb leaderboards with friends, and earn eternal bragging rights." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+  /* =========================================================================
+     Cricket Oracle — styles (inlined so the file works when opened directly)
+     Theme: night pitch. Deep green field, gold leather-ball accents.
+     ========================================================================= */
+
+  :root {
+    --pitch-900: #06251b;
+    --pitch-800: #0a3d2e;
+    --pitch-700: #0e4d3a;
+    --pitch-card: #0d2c22;
+    --line: rgba(255, 255, 255, 0.09);
+    --line-strong: rgba(255, 255, 255, 0.16);
+    --ink: #eafaf2;
+    --ink-dim: #9bc4b3;
+    --gold: #f5c542;
+    --gold-deep: #d99e1f;
+    --ball: #c0392b;
+    --good: #2ecc71;
+    --bad: #ff5d5d;
+    --radius: 18px;
+    --shadow: 0 18px 40px -18px rgba(0, 0, 0, 0.7);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: "Outfit", system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(1200px 700px at 50% -10%, var(--pitch-700), transparent 60%),
+      radial-gradient(900px 600px at 10% 110%, #0b3a2b, transparent 55%),
+      var(--pitch-900);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    padding-bottom: 40px;
+  }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    background: rgba(6, 37, 27, 0.82);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--line);
+  }
+  .brand { display: flex; align-items: center; gap: 9px; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; }
+  .brand-mark { font-size: 22px; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4)); }
+  .brand-name b { color: var(--gold); font-weight: 900; }
+  .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+  .streak-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(180deg, #1a5440, #0e3a2c);
+    border: 1px solid var(--line-strong);
+    color: var(--ink); font-weight: 800; font-size: 15px;
+    padding: 7px 13px; border-radius: 999px; cursor: pointer;
+    transition: transform .12s ease;
+  }
+  .streak-pill:hover { transform: translateY(-1px); }
+  .streak-pill .flame { font-size: 16px; }
+  .streak-pill.pulse { animation: pulse .5s ease; }
+
+  .icon-btn {
+    width: 34px; height: 34px; border-radius: 50%;
+    border: 1px solid var(--line-strong); background: transparent;
+    color: var(--ink-dim); font-weight: 700; font-size: 16px; cursor: pointer;
+  }
+  .icon-btn:hover { color: var(--ink); border-color: var(--gold); }
+
+  /* ---------- Sponsor strip ---------- */
+  .sponsor-strip {
+    text-align: center; font-size: 13px; letter-spacing: 0.04em;
+    color: var(--ink-dim); padding: 8px 16px;
+    background: rgba(245, 197, 66, 0.06);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* ---------- Layout ---------- */
+  .wrap { max-width: 560px; margin: 0 auto; padding: 22px 16px; display: flex; flex-direction: column; gap: 18px; }
+
+  .card {
+    background: linear-gradient(180deg, var(--pitch-card), #0a241b);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ---------- Challenge ---------- */
+  .challenge-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .badge {
+    background: var(--gold); color: #3a2a00; font-weight: 800; font-size: 12px;
+    letter-spacing: 0.08em; padding: 4px 10px; border-radius: 6px; text-transform: uppercase;
+  }
+  .countdown { font-size: 13px; color: var(--ink-dim); font-variant-numeric: tabular-nums; }
+
+  .matchup { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 4px 0 10px; }
+  .team { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; }
+  .crest {
+    width: 58px; height: 58px; border-radius: 50%;
+    display: grid; place-items: center; font-weight: 900; font-size: 18px; color: #fff;
+    border: 2px solid rgba(255,255,255,.25); box-shadow: 0 6px 16px -6px rgba(0,0,0,.6);
+  }
+  .team-name { font-size: 13px; font-weight: 600; color: var(--ink-dim); text-align: center; }
+  .vs { font-weight: 900; color: var(--gold); font-size: 15px; opacity: .9; }
+
+  .venue { text-align: center; font-size: 12.5px; color: var(--ink-dim); margin-bottom: 14px; }
+  .question { text-align: center; font-size: 23px; font-weight: 800; line-height: 1.25; letter-spacing: -0.02em; margin-bottom: 18px; }
+
+  .options { display: grid; gap: 10px; margin-bottom: 16px; }
+  .options.two { grid-template-columns: 1fr 1fr; }
+  .opt {
+    appearance: none; cursor: pointer; text-align: left;
+    background: rgba(255,255,255,0.04); border: 1.5px solid var(--line-strong);
+    color: var(--ink); font-family: inherit; font-size: 15px; font-weight: 600;
+    padding: 15px 16px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    transition: border-color .14s ease, background .14s ease, transform .1s ease;
+  }
+  .options.two .opt { justify-content: center; text-align: center; }
+  .opt:hover { border-color: var(--gold); transform: translateY(-1px); }
+  .opt.selected { border-color: var(--gold); background: rgba(245,197,66,0.12); box-shadow: inset 0 0 0 1px var(--gold); }
+  .opt.correct { border-color: var(--good); background: rgba(46,204,113,0.16); }
+  .opt.wrong { border-color: var(--bad); background: rgba(255,93,93,0.14); }
+  .opt .tick { font-weight: 900; }
+  .opt.locked { cursor: default; opacity: .85; }
+  .opt.locked:hover { transform: none; }
+
+  .lock-btn {
+    width: 100%; cursor: pointer; font-family: inherit;
+    background: linear-gradient(180deg, var(--gold), var(--gold-deep));
+    color: #3a2a00; font-weight: 800; font-size: 16px;
+    border: none; padding: 15px; border-radius: 12px;
+    transition: transform .1s ease, filter .14s ease;
+  }
+  .lock-btn:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.05); }
+  .lock-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  .micro { font-size: 12px; color: var(--ink-dim); text-align: center; margin-top: 10px; }
+
+  /* ---------- Result ---------- */
+  .result-top { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .result-emoji { font-size: 42px; }
+  .result-top h2 { font-size: 19px; font-weight: 800; }
+
+  .streak-track { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+  .pip { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-size: 14px;
+    background: rgba(255,255,255,0.05); border: 1px solid var(--line); }
+  .pip.hit { background: rgba(46,204,113,0.18); border-color: var(--good); }
+  .pip.miss { background: rgba(255,93,93,0.14); border-color: var(--bad); }
+  .pip.today { box-shadow: 0 0 0 2px var(--gold); }
+
+  .result-actions { display: flex; gap: 10px; }
+  .result-actions button { flex: 1; }
+
+  .ghost-btn {
+    cursor: pointer; font-family: inherit; font-weight: 700; font-size: 14px;
+    background: transparent; color: var(--ink); border: 1.5px solid var(--line-strong);
+    padding: 13px; border-radius: 12px; transition: border-color .14s ease, color .14s ease;
+  }
+  .ghost-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .ghost-btn.full { width: 100%; margin-top: 12px; }
+
+  .share-btn {
+    cursor: pointer; font-family: inherit; font-weight: 800; font-size: 14px;
+    background: linear-gradient(180deg, #2ecc71, #1f9d57); color: #042512;
+    border: none; padding: 13px; border-radius: 12px; transition: transform .1s ease, filter .14s;
+  }
+  .share-btn:hover { transform: translateY(-1px); filter: brightness(1.05); }
+
+  /* ---------- Section head / tabs ---------- */
+  .section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .section-head h2 { font-size: 18px; font-weight: 800; }
+  .tabs { display: flex; gap: 4px; background: rgba(0,0,0,0.25); padding: 4px; border-radius: 10px; }
+  .tab {
+    cursor: pointer; font-family: inherit; font-weight: 700; font-size: 13px;
+    background: transparent; color: var(--ink-dim); border: none; padding: 7px 12px; border-radius: 7px;
+  }
+  .tab.active { background: var(--pitch-700); color: var(--ink); }
+
+  /* ---------- Board ---------- */
+  .board { list-style: none; display: flex; flex-direction: column; gap: 4px; }
+  .row { display: flex; align-items: center; gap: 12px; padding: 11px 12px; border-radius: 12px; }
+  .row.me { background: rgba(245,197,66,0.10); border: 1px solid rgba(245,197,66,0.4); }
+  .rank { width: 22px; text-align: center; font-weight: 800; color: var(--ink-dim); font-size: 14px; }
+  .rank.top { color: var(--gold); }
+  .av { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 18px;
+    background: rgba(255,255,255,0.06); border: 1px solid var(--line); }
+  .who { flex: 1; min-width: 0; }
+  .who b { display: block; font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .who span { font-size: 12px; color: var(--ink-dim); }
+  .pts { font-weight: 800; font-size: 14px; color: var(--gold); font-variant-numeric: tabular-nums; }
+
+  /* ---------- Stats ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .stat { background: var(--pitch-card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 8px; text-align: center; }
+  .stat b { display: block; font-size: 22px; font-weight: 900; color: var(--gold); }
+  .stat span { font-size: 11px; color: var(--ink-dim); }
+
+  /* ---------- Ad slot ---------- */
+  .ad-slot {
+    border: 1.5px dashed var(--line-strong); border-radius: 14px; padding: 26px;
+    text-align: center; color: var(--ink-dim); font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+    background: rgba(255,255,255,0.02);
+  }
+
+  /* ---------- Footer ---------- */
+  .footer { text-align: center; padding: 26px 16px; color: var(--ink-dim); }
+  .footer p { font-size: 14px; margin-bottom: 6px; }
+
+  /* ---------- Modal ---------- */
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(3,18,13,0.7); backdrop-filter: blur(4px);
+    display: grid; place-items: center; z-index: 50; padding: 20px; }
+  .modal { position: relative; background: linear-gradient(180deg, var(--pitch-card), #0a241b);
+    border: 1px solid var(--line-strong); border-radius: 20px; padding: 26px; max-width: 420px; width: 100%; box-shadow: var(--shadow); }
+  .modal h2 { font-size: 22px; margin-bottom: 16px; }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: var(--ink-dim); font-size: 18px; cursor: pointer; }
+  .how-list { padding-left: 20px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+  .how-list li { font-size: 14.5px; line-height: 1.5; color: var(--ink); }
+  .how-list b { color: var(--gold); }
+  .modal .lock-btn { margin-top: 16px; }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #06251b; border: 1px solid var(--gold); color: var(--ink);
+    padding: 13px 20px; border-radius: 12px; font-weight: 600; font-size: 14px;
+    box-shadow: var(--shadow); z-index: 60; opacity: 0; transition: opacity .2s ease, transform .2s ease;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ---------- Utility ---------- */
+  .hidden { display: none !important; }
+  @keyframes pulse { 0%,100% { transform: scale(1);} 40% { transform: scale(1.18);} }
+  @keyframes pop { 0% { transform: scale(.8); opacity: 0;} 100% { transform: scale(1); opacity: 1;} }
+  .pop { animation: pop .3s ease; }
+
+  @media (max-width: 420px) {
+    .question { font-size: 20px; }
+    .stats { gap: 7px; }
+    .stat b { font-size: 19px; }
+  }
+  </style>
+</head>
+<body>
+  <!-- ===== Top bar ===== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">🏏</span>
+      <span class="brand-name">Cricket<b>Oracle</b></span>
+    </div>
+    <div class="topbar-right">
+      <button class="streak-pill" id="streakPill" title="Your current streak">
+        <span class="flame">🔥</span><span id="streakCount">0</span>
+      </button>
+      <button class="icon-btn" id="howToBtn" title="How to play">?</button>
+    </div>
+  </header>
+
+  <!-- ===== Sponsor strip (monetization) ===== -->
+  <div class="sponsor-strip" id="sponsorStrip"></div>
+
+  <main class="wrap">
+    <!-- ===== Daily challenge card ===== -->
+    <section class="card challenge" id="challengeCard">
+      <div class="challenge-head">
+        <span class="badge" id="leagueBadge">IPL</span>
+        <span class="countdown" id="countdown">Locks in 00:00:00</span>
+      </div>
+
+      <div class="matchup" id="matchup"><!-- teams injected --></div>
+
+      <p class="venue" id="venue"></p>
+
+      <h1 class="question" id="question">Loading today's prediction…</h1>
+
+      <div class="options" id="options"><!-- option buttons injected --></div>
+
+      <button class="lock-btn" id="lockBtn" disabled>Lock in my pick 🔒</button>
+
+      <p class="micro" id="microNote">One pick. No takebacks. Choose wisely.</p>
+    </section>
+
+    <!-- ===== Result / reveal (hidden until locked) ===== -->
+    <section class="card result hidden" id="resultCard">
+      <div class="result-top">
+        <div class="result-emoji" id="resultEmoji">⏳</div>
+        <div>
+          <h2 id="resultTitle">Pick locked!</h2>
+          <p id="resultSub" class="micro">Result drops after the match. Come back to see how you did.</p>
+        </div>
+      </div>
+
+      <div class="streak-track" id="streakTrack"></div>
+
+      <div class="result-actions">
+        <button class="ghost-btn" id="revealBtn">Reveal result (demo)</button>
+        <button class="share-btn" id="shareBtn">Share my pick 📲</button>
+      </div>
+    </section>
+
+    <!-- ===== Leaderboard ===== -->
+    <section class="card">
+      <div class="section-head">
+        <h2>Leaderboard</h2>
+        <div class="tabs">
+          <button class="tab active" data-board="friends">Friends</button>
+          <button class="tab" data-board="global">Global</button>
+        </div>
+      </div>
+      <ol class="board" id="board"></ol>
+      <button class="ghost-btn full" id="inviteBtn">Invite friends to beat your streak ＋</button>
+    </section>
+
+    <!-- ===== Stats ===== -->
+    <section class="stats">
+      <div class="stat"><b id="statStreak">0</b><span>Current streak</span></div>
+      <div class="stat"><b id="statBest">0</b><span>Best streak</span></div>
+      <div class="stat"><b id="statWins">0</b><span>Correct picks</span></div>
+      <div class="stat"><b id="statRate">—</b><span>Hit rate</span></div>
+    </section>
+
+    <!-- ===== Ad placeholder (monetization) ===== -->
+    <div class="ad-slot" aria-hidden="true">Advertisement</div>
+  </main>
+
+  <footer class="footer">
+    <p>Free to play, forever. The bragging rights are the prize. 🏆</p>
+    <p class="micro">Cricket Oracle · A daily prediction game · No real money involved</p>
+  </footer>
+
+  <!-- ===== How-to modal ===== -->
+  <div class="modal-backdrop hidden" id="modal">
+    <div class="modal">
+      <button class="modal-close" id="modalClose">✕</button>
+      <h2>How to play 🏏</h2>
+      <ol class="how-list">
+        <li><b>One prediction a day.</b> Match winner, top scorer, or total runs — same question for everyone.</li>
+        <li><b>Lock it in.</b> You get one pick. No takebacks before the match.</li>
+        <li><b>Build your streak.</b> Get it right and your 🔥 grows. Miss one and it resets to zero.</li>
+        <li><b>Climb the board.</b> Beat your friends, top the global ladder, share the carnage.</li>
+      </ol>
+      <p class="micro">Come back every day. Miss a day, lose your streak. Simple as that.</p>
+      <button class="lock-btn" id="modalGotIt">Let's go</button>
+    </div>
+  </div>
+
+  <!-- ===== Toast ===== -->
+  <div class="toast hidden" id="toast"></div>
+
+  <script>
+  /* =========================================================================
+     Cricket Oracle — daily challenge bank
+     Each day the app deterministically picks one challenge (seeded by date),
+     so every player worldwide gets the SAME question on the SAME day.
+     ========================================================================= */
+
+  const CHALLENGE_BANK = [
+    {
+      league: "IPL", venue: "Wankhede Stadium, Mumbai",
+      home: { name: "Mumbai Indians", short: "MI", color: "#004ba0" },
+      away: { name: "Chennai Super Kings", short: "CSK", color: "#f9cd05" },
+      type: "winner",
+      question: "Who wins tonight's blockbuster?",
+      options: ["Mumbai Indians", "Chennai Super Kings"],
+      answer: "Chennai Super Kings",
+      points: 100,
+    },
+    {
+      league: "IPL", venue: "M. Chinnaswamy Stadium, Bengaluru",
+      home: { name: "Royal Challengers Bengaluru", short: "RCB", color: "#d31a1a" },
+      away: { name: "Kolkata Knight Riders", short: "KKR", color: "#3a225d" },
+      type: "top_scorer",
+      question: "Who tops the run charts tonight?",
+      options: ["Virat Kohli", "Phil Salt", "Ajinkya Rahane", "Rinku Singh"],
+      answer: "Virat Kohli",
+      points: 150,
+    },
+    {
+      league: "IPL", venue: "Narendra Modi Stadium, Ahmedabad",
+      home: { name: "Gujarat Titans", short: "GT", color: "#1b2133" },
+      away: { name: "Rajasthan Royals", short: "RR", color: "#ea1a85" },
+      type: "total_runs",
+      question: "First innings total — pick the bracket",
+      options: ["Under 160", "160 – 180", "181 – 200", "Over 200"],
+      answer: "181 – 200",
+      points: 200,
+    },
+    {
+      league: "T20I", venue: "MCG, Melbourne",
+      home: { name: "India", short: "IND", color: "#0d6efd" },
+      away: { name: "Australia", short: "AUS", color: "#f9cd05" },
+      type: "winner",
+      question: "Who takes the series-decider?",
+      options: ["India", "Australia"],
+      answer: "India",
+      points: 100,
+    },
+    {
+      league: "The Hundred", venue: "Lord's, London",
+      home: { name: "London Spirit", short: "LDN", color: "#1ea7b6" },
+      away: { name: "Trent Rockets", short: "TRT", color: "#e94f1d" },
+      type: "top_scorer",
+      question: "Top scorer of the match?",
+      options: ["Kane Williamson", "Joe Root", "David Warner", "Liam Livingstone"],
+      answer: "Joe Root",
+      points: 150,
+    },
+    {
+      league: "IPL", venue: "Eden Gardens, Kolkata",
+      home: { name: "Kolkata Knight Riders", short: "KKR", color: "#3a225d" },
+      away: { name: "Sunrisers Hyderabad", short: "SRH", color: "#f26522" },
+      type: "total_runs",
+      question: "How many runs in the powerplay (6 overs)?",
+      options: ["Under 45", "45 – 60", "61 – 75", "Over 75"],
+      answer: "61 – 75",
+      points: 200,
+    },
+    {
+      league: "ODI", venue: "Eden Park, Auckland",
+      home: { name: "New Zealand", short: "NZ", color: "#222222" },
+      away: { name: "Pakistan", short: "PAK", color: "#1f7a3d" },
+      type: "winner",
+      question: "Who wins the rain-shortened thriller?",
+      options: ["New Zealand", "Pakistan"],
+      answer: "Pakistan",
+      points: 100,
+    },
+    {
+      league: "IPL", venue: "Arun Jaitley Stadium, Delhi",
+      home: { name: "Delhi Capitals", short: "DC", color: "#17449b" },
+      away: { name: "Punjab Kings", short: "PBKS", color: "#d71920" },
+      type: "top_scorer",
+      question: "Who walks away with the orange-cap moment?",
+      options: ["Jake Fraser-McGurk", "Shashank Singh", "KL Rahul", "Prabhsimran Singh"],
+      answer: "Jake Fraser-McGurk",
+      points: 150,
+    },
+    {
+      league: "BBL", venue: "SCG, Sydney",
+      home: { name: "Sydney Sixers", short: "SIX", color: "#e91e63" },
+      away: { name: "Perth Scorchers", short: "SCO", color: "#ff6f00" },
+      type: "total_runs",
+      question: "Winning team's final total?",
+      options: ["Under 150", "150 – 170", "171 – 190", "Over 190"],
+      answer: "171 – 190",
+      points: 200,
+    },
+    {
+      league: "T20I", venue: "Wanderers, Johannesburg",
+      home: { name: "South Africa", short: "RSA", color: "#007749" },
+      away: { name: "England", short: "ENG", color: "#1f3a93" },
+      type: "winner",
+      question: "Who closes out the chase?",
+      options: ["South Africa", "England"],
+      answer: "England",
+      points: 100,
+    },
+    {
+      league: "IPL", venue: "Rajiv Gandhi Stadium, Hyderabad",
+      home: { name: "Sunrisers Hyderabad", short: "SRH", color: "#f26522" },
+      away: { name: "Lucknow Super Giants", short: "LSG", color: "#0057b8" },
+      type: "top_scorer",
+      question: "Highest individual score tonight?",
+      options: ["Travis Head", "Abhishek Sharma", "Nicholas Pooran", "Marcus Stoinis"],
+      answer: "Abhishek Sharma",
+      points: 150,
+    },
+    {
+      league: "Test", venue: "Galle International Stadium",
+      home: { name: "Sri Lanka", short: "SL", color: "#1b3c8c" },
+      away: { name: "India", short: "IND", color: "#0d6efd" },
+      type: "total_runs",
+      question: "Day 1 wickets to fall (both teams)?",
+      options: ["0 – 4", "5 – 7", "8 – 10", "Over 10"],
+      answer: "5 – 7",
+      points: 200,
+    },
+    {
+      league: "IPL", venue: "MA Chidambaram Stadium, Chennai",
+      home: { name: "Chennai Super Kings", short: "CSK", color: "#f9cd05" },
+      away: { name: "Royal Challengers Bengaluru", short: "RCB", color: "#d31a1a" },
+      type: "winner",
+      question: "El Clásico of the IPL — who blinks first?",
+      options: ["Chennai Super Kings", "Royal Challengers Bengaluru"],
+      answer: "Royal Challengers Bengaluru",
+      points: 100,
+    },
+    {
+      league: "T20I", venue: "Pallekele, Kandy",
+      home: { name: "Bangladesh", short: "BAN", color: "#006a4e" },
+      away: { name: "Afghanistan", short: "AFG", color: "#1f6fb2" },
+      type: "top_scorer",
+      question: "Player of the match contender — top run-getter?",
+      options: ["Litton Das", "Rahmanullah Gurbaz", "Towhid Hridoy", "Ibrahim Zadran"],
+      answer: "Rahmanullah Gurbaz",
+      points: 150,
+    },
+  ];
+
+  /* Mock friends for the leaderboard. The signed-in player is spliced in by
+     score at runtime, so climbing the board feels real. */
+  const SEED_FRIENDS = [
+    { name: "Rohit_2007",     avatar: "🦁", streak: 23, score: 4120 },
+    { name: "ViratFan18",     avatar: "👑", streak: 17, score: 3890 },
+    { name: "GullyCricketer",  avatar: "🏏", streak: 14, score: 3550 },
+    { name: "DhoniIsGod",     avatar: "🧤", streak: 31, score: 3340 },
+    { name: "SpinQueen",      avatar: "🌀", streak: 9,  score: 2980 },
+    { name: "BoundaryHunter", avatar: "💥", streak: 12, score: 2710 },
+    { name: "MidWicketMaria", avatar: "🎯", streak: 6,  score: 2200 },
+    { name: "YorkerKing",     avatar: "⚡", streak: 4,  score: 1840 },
+    { name: "CoverDrive99",   avatar: "🎩", streak: 2,  score: 1450 },
+  ];
+
+  const SPONSORS = [
+    "🏏 Powered by  GULLY  — India's gully cricket gear",
+    "🥤 Today's match fuel:  THANDA  cold drinks",
+    "👟 Step up your game with  STRIDE  cricket shoes",
+  ];
+
+  /* =========================================================================
+     Cricket Oracle — app logic
+     Pure front-end MVP. State persists in localStorage so the streak, history
+     and score survive reloads. A real deployment would swap localStorage for an
+     API + auth, and resolve `answer` from a live cricket data feed.
+     ========================================================================= */
+
+  const STORE_KEY = "cricket-oracle-v1";
+  const $ = (sel) => document.querySelector(sel);
+
+  /* ---------- Date helpers (a "day" = local calendar day) ---------- */
+  function todayKey(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+  function dayNumber(d = new Date()) {
+    // days since epoch, local — used to deterministically pick the challenge
+    return Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000) +
+           d.getFullYear() * 366;
+  }
+
+  /* ---------- State ---------- */
+  const defaultState = () => ({
+    streak: 0,
+    best: 0,
+    wins: 0,
+    played: 0,
+    history: [],        // [{ date, correct }]
+    today: null,        // { date, pick, locked, revealed, correct }
+    baseScore: 1000,    // gives the player a foothold on the leaderboard
+  });
+
+  function load() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STORE_KEY));
+      return s && typeof s === "object" ? { ...defaultState(), ...s } : defaultState();
+    } catch { return defaultState(); }
+  }
+  function save() { localStorage.setItem(STORE_KEY, JSON.stringify(state)); }
+
+  let state = load();
+
+  /* Reset `today` if it's from a previous day. If they had locked a pick
+     yesterday and never resolved it, treat it as resolved on load (auto-grade)
+     so streaks behave. */
+  (function rollDay() {
+    const tk = todayKey();
+    if (state.today && state.today.date !== tk) {
+      if (state.today.locked && !state.today.revealed) {
+        gradePick(state.today, /*silent*/ true);
+      }
+      state.today = null;
+      save();
+    }
+  })();
+
+  /* ---------- Today's challenge (deterministic) ---------- */
+  const challenge = CHALLENGE_BANK[dayNumber() % CHALLENGE_BANK.length];
+
+  /* ---------- Rendering ---------- */
+  function renderSponsor() {
+    $("#sponsorStrip").textContent = SPONSORS[dayNumber() % SPONSORS.length];
+  }
+
+  function renderChallenge() {
+    $("#leagueBadge").textContent = challenge.league;
+    $("#venue").textContent = `📍 ${challenge.venue}`;
+    $("#question").textContent = challenge.question;
+
+    const mk = (t) => `
+      <div class="team">
+        <div class="crest" style="background:${t.color}">${t.short}</div>
+        <div class="team-name">${t.name}</div>
+      </div>`;
+    $("#matchup").innerHTML = mk(challenge.home) + `<div class="vs">VS</div>` + mk(challenge.away);
+
+    const opts = $("#options");
+    opts.classList.toggle("two", challenge.options.length === 2);
+    opts.innerHTML = challenge.options.map((o, i) =>
+      `<button class="opt" data-opt="${i}"><span>${o}</span><span class="tick"></span></button>`
+    ).join("");
+
+    opts.querySelectorAll(".opt").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        if (state.today && state.today.locked) return;
+        selectOption(challenge.options[btn.dataset.opt]);
+      });
+    });
+
+    restoreTodayUI();
+  }
+
+  let pendingPick = null;
+  function selectOption(value) {
+    pendingPick = value;
+    document.querySelectorAll(".opt").forEach((b) =>
+      b.classList.toggle("selected", b.querySelector("span").textContent === value)
+    );
+    $("#lockBtn").disabled = false;
+  }
+
+  function lockPick() {
+    if (!pendingPick) return;
+    state.today = { date: todayKey(), pick: pendingPick, locked: true, revealed: false, correct: null };
+    save();
+    restoreTodayUI();
+    toast("Pick locked in 🔒 Good luck!");
+  }
+
+  /* Grade a pick against challenge.answer. Updates streak/score/history. */
+  function gradePick(today, silent = false) {
+    if (today.revealed) return;
+    const correct = today.pick === challenge.answer;
+    today.correct = correct;
+    today.revealed = true;
+
+    state.played += 1;
+    state.history.push({ date: today.date, correct });
+    if (state.history.length > 30) state.history = state.history.slice(-30);
+
+    if (correct) {
+      state.wins += 1;
+      state.streak += 1;
+      state.best = Math.max(state.best, state.streak);
+      state.baseScore += challenge.points + state.streak * 10; // streak bonus
+    } else {
+      state.streak = 0;
+    }
+    save();
+    if (!silent) afterReveal(correct);
+  }
+
+  function revealResult() {
+    if (!state.today || !state.today.locked) return;
+    gradePick(state.today, false);
+  }
+
+  function afterReveal(correct) {
+    document.querySelectorAll(".opt").forEach((b) => {
+      const label = b.querySelector("span").textContent;
+      if (label === challenge.answer) { b.classList.add("correct"); b.querySelector(".tick").textContent = "✓"; }
+      if (label === state.today.pick && !correct) { b.classList.add("wrong"); b.querySelector(".tick").textContent = "✕"; }
+    });
+    renderResultCard();
+    renderStats();
+    renderBoard(currentBoard);
+    renderStreakPill(true);
+    toast(correct ? `Correct! +${challenge.points} pts 🎉` : "Not this time — streak reset 💔");
+  }
+
+  function restoreTodayUI() {
+    const t = state.today;
+    if (t && t.locked) {
+      document.querySelectorAll(".opt").forEach((b) => {
+        b.classList.add("locked");
+        b.classList.toggle("selected", b.querySelector("span").textContent === t.pick);
+      });
+      $("#lockBtn").classList.add("hidden");
+      $("#resultCard").classList.remove("hidden");
+      $("#microNote").textContent = "You're locked in. Result drops after the match.";
+
+      if (t.revealed) {
+        document.querySelectorAll(".opt").forEach((b) => {
+          const label = b.querySelector("span").textContent;
+          if (label === challenge.answer) { b.classList.add("correct"); b.querySelector(".tick").textContent = "✓"; }
+          if (label === t.pick && !t.correct) { b.classList.add("wrong"); b.querySelector(".tick").textContent = "✕"; }
+        });
+      }
+      renderResultCard();
+    } else {
+      $("#lockBtn").classList.remove("hidden");
+      $("#resultCard").classList.add("hidden");
+    }
+  }
+
+  function renderResultCard() {
+    const t = state.today;
+    const revealBtn = $("#revealBtn");
+    if (!t) return;
+    if (t.revealed) {
+      $("#resultEmoji").textContent = t.correct ? "✅" : "❌";
+      $("#resultTitle").textContent = t.correct ? "Nailed it!" : "So close!";
+      $("#resultSub").textContent = t.correct
+        ? `You called it. Streak now ${state.streak} 🔥`
+        : `The answer was “${challenge.answer}”. Streak reset — back tomorrow.`;
+      revealBtn.classList.add("hidden");
+    } else {
+      $("#resultEmoji").textContent = "⏳";
+      $("#resultTitle").textContent = "Pick locked!";
+      $("#resultSub").textContent = "Result drops after the match. (Tap reveal to simulate.)";
+      revealBtn.classList.remove("hidden");
+    }
+    renderStreakTrack();
+  }
+
+  function renderStreakTrack() {
+    const track = $("#streakTrack");
+    const hist = state.history.slice(-10);
+    track.innerHTML = hist.map((h) =>
+      `<div class="pip ${h.correct ? "hit" : "miss"}">${h.correct ? "🏏" : "·"}</div>`
+    ).join("") + `<div class="pip today" title="today">${
+      state.today && state.today.revealed ? (state.today.correct ? "🏏" : "·") : "?"
+    }</div>`;
+  }
+
+  function renderStreakPill(pulse) {
+    $("#streakCount").textContent = state.streak;
+    if (pulse) {
+      const p = $("#streakPill");
+      p.classList.remove("pulse"); void p.offsetWidth; p.classList.add("pulse");
+    }
+  }
+
+  function renderStats() {
+    $("#statStreak").textContent = state.streak;
+    $("#statBest").textContent = state.best;
+    $("#statWins").textContent = state.wins;
+    $("#statRate").textContent = state.played ? Math.round((state.wins / state.played) * 100) + "%" : "—";
+  }
+
+  /* ---------- Leaderboard ---------- */
+  let currentBoard = "friends";
+  function renderBoard(which) {
+    currentBoard = which;
+    const me = { name: "You", avatar: "🧢", streak: state.streak, score: state.baseScore, me: true };
+    let rows = [...SEED_FRIENDS.map((f) => ({ ...f }))];
+    if (which === "global") {
+      rows = rows.map((f, i) => ({ ...f, score: f.score + 1500 + i * 130 }));
+    }
+    rows.push(me);
+    rows.sort((a, b) => b.score - a.score);
+
+    $("#board").innerHTML = rows.map((r, i) => `
+      <li class="row ${r.me ? "me" : ""}">
+        <span class="rank ${i < 3 ? "top" : ""}">${i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i + 1}</span>
+        <span class="av">${r.avatar}</span>
+        <span class="who"><b>${r.name}</b><span>🔥 ${r.streak} day streak</span></span>
+        <span class="pts">${r.score.toLocaleString()}</span>
+      </li>`).join("");
+  }
+
+  /* ---------- Share ---------- */
+  function buildShareText() {
+    const t = state.today;
+    const hist = state.history.slice(-7).map((h) => (h.correct ? "🟩" : "🟥")).join("");
+    let line;
+    if (t && t.revealed) line = t.correct ? "✅ Called it!" : "❌ Missed it.";
+    else line = "🔒 Locked in.";
+    return `🏏 Cricket Oracle — ${todayKey()}\n${challenge.home.short} v ${challenge.away.short}: ${line}\n` +
+           `🔥 Streak ${state.streak}  ·  Best ${state.best}\n${hist || "▫️▫️▫️"}\n\nPlay daily 👉 cricketoracle.app`;
+  }
+  async function shareResult() {
+    const text = buildShareText();
+    if (navigator.share) {
+      try { await navigator.share({ title: "Cricket Oracle", text }); return; } catch {}
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      toast("Result copied — paste it anywhere 📋");
+    } catch {
+      toast("Share: \n" + text);
+    }
+  }
+
+  /* ---------- Countdown to lock (end of local day) ---------- */
+  function tickCountdown() {
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0);
+    const diff = Math.max(0, end - now);
+    const h = String(Math.floor(diff / 3600000)).padStart(2, "0");
+    const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+    const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+    const locked = state.today && state.today.locked;
+    $("#countdown").textContent = locked ? "✓ Locked for today" : `Next match in ${h}:${m}:${s}`;
+  }
+
+  /* ---------- Toast + modal ---------- */
+  let toastTimer;
+  function toast(msg) {
+    const el = $("#toast");
+    el.textContent = msg;
+    el.classList.remove("hidden"); void el.offsetWidth; el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  }
+  function openModal() { $("#modal").classList.remove("hidden"); }
+  function closeModal() { $("#modal").classList.add("hidden"); }
+
+  /* ---------- Wire up ---------- */
+  function init() {
+    renderSponsor();
+    renderChallenge();
+    renderStreakPill(false);
+    renderStats();
+    renderBoard("friends");
+
+    $("#lockBtn").addEventListener("click", lockPick);
+    $("#revealBtn").addEventListener("click", revealResult);
+    $("#shareBtn").addEventListener("click", shareResult);
+    $("#howToBtn").addEventListener("click", openModal);
+    $("#modalClose").addEventListener("click", closeModal);
+    $("#modalGotIt").addEventListener("click", closeModal);
+    $("#streakPill").addEventListener("click", () =>
+      toast(state.streak ? `🔥 ${state.streak}-day streak — don't break it!` : "Make a pick to start your streak 🔥"));
+    $("#inviteBtn").addEventListener("click", async () => {
+      const link = "https://cricketoracle.app/?ref=you";
+      try { await navigator.clipboard.writeText(link); toast("Invite link copied 🔗"); }
+      catch { toast("Share this link: " + link); }
+    });
+
+    document.querySelectorAll(".tab").forEach((tab) =>
+      tab.addEventListener("click", () => {
+        document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        renderBoard(tab.dataset.board);
+      }));
+
+    if (!localStorage.getItem(STORE_KEY)) openModal();
+
+    tickCountdown();
+    setInterval(tickCountdown, 1000);
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>

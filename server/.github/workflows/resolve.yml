@@ -1,0 +1,28 @@
+# Scheduled auto-resolver — an alternative to an always-on server.
+# Runs the one-shot resolver every 10 minutes on GitHub's infrastructure.
+# Set repo secrets: PROVIDER, CRICAPI_KEY (and commit/persist your data store,
+# or point the store layer at a hosted DB).
+name: resolve-cricket-oracle
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci || npm install
+      - name: Resolve due matches
+        env:
+          PROVIDER: ${{ secrets.PROVIDER }}
+          CRICAPI_KEY: ${{ secrets.CRICAPI_KEY }}
+        run: node scripts/resolve.js

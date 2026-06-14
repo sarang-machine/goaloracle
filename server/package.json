@@ -1,0 +1,19 @@
+{
+  "name": "cricket-oracle-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend for Cricket Oracle — publishes the daily challenge, locks picks at match start, and auto-grades everyone from real match results.",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "seed": "node scripts/seed.js",
+    "resolve": "node scripts/resolve.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "google-auth-library": "^9.14.1",
+    "node-cron": "^3.0.3"
+  },
+  "license": "MIT"
+}

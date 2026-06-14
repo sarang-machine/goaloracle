@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0" />
+  <meta name="theme-color" content="#16a34a" />
+  <title>Goal Oracle — Daily World Cup 2026 Prediction Game</title>
+  <meta name="description" content="One World Cup 2026 prediction a day. Build streaks, climb leaderboards with friends, share your results. Free to play." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/svg+xml" href="logo.svg" />
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <style>
+  /* =========================================================================
+     GOAL ORACLE — neobrutalist, mobile-first (World Cup 2026 edition)
+     Cream paper, thick black borders, hard offset shadows, arcade type.
+     Designed phone-first: big tap targets, bottom tab bar, thumb-friendly.
+     Note: the variable names are kept from the cricket build; values are
+     re-themed to a pitch-green football palette.
+     ========================================================================= */
+
+  :root {
+    --cream:  #fff3e0;
+    --paper:  #fffdf7;
+    --ink:    #161210;
+    --black:  #000000;
+    --orange: #16a34a;   /* primary — pitch green */
+    --yellow: #ffba08;   /* accent — trophy gold */
+    --rust:   #0b6e3a;   /* deep green */
+    --indigo: #1e3a8a;   /* scoreboard blue */
+    --green:  #43c463;   /* success / correct */
+    --green-dk:#2d6a4f;
+    --lav:    #b9d4f0;   /* sky blue */
+    --red:    #e63946;
+
+    --bd: 3px solid var(--black);
+    --bd-thick: 4px solid var(--black);
+    --sh: 5px 5px 0 var(--black);
+    --sh-sm: 3px 3px 0 var(--black);
+    --sh-lg: 7px 7px 0 var(--black);
+
+    --press: "Press Start 2P", monospace;
+    --mono: "Space Mono", "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+  body {
+    font-family: var(--mono);
+    color: var(--ink);
+    background-color: var(--cream);
+    background-image:
+      radial-gradient(var(--black) 1px, transparent 1px);
+    background-size: 22px 22px;
+    background-position: -11px -11px;
+    min-height: 100dvh;
+    line-height: 1.45;
+  }
+
+  /* ---------- Phone shell ---------- */
+  .app {
+    max-width: 460px;
+    margin: 0 auto;
+    min-height: 100dvh;
+    background: var(--cream);
+    border-left: var(--bd);
+    border-right: var(--bd);
+    position: relative;
+    overflow-x: hidden;
+  }
+  @media (max-width: 480px) { .app { border-left: none; border-right: none; } }
+
+  /* ---------- Header ---------- */
+  .hdr {
+    position: sticky; top: 0; z-index: 40;
+    background: var(--orange);
+    border-bottom: var(--bd-thick);
+    padding: 12px 14px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo { display: flex; align-items: center; gap: 8px; }
+  .logo .logo-mark { width: 40px; height: 40px; flex: none; display: block; }
+  .logo .logo-mark svg { width: 100%; height: 100%; display: block; overflow: visible; }
+  .logo h1 {
+    font-family: var(--press); font-size: 11px; line-height: 1.3;
+    color: var(--black); letter-spacing: -0.5px; text-transform: uppercase;
+  }
+  .logo h1 span { color: var(--paper); }
+
+  .streak-chip {
+    font-family: var(--press); font-size: 12px;
+    background: var(--yellow); color: var(--black);
+    border: var(--bd); box-shadow: 2px 2px 0 var(--black);
+    padding: 8px 10px; display: flex; align-items: center; gap: 6px; cursor: pointer;
+  }
+  .streak-chip:active { transform: translate(2px,2px); box-shadow: none; }
+
+  /* ---------- Ticker / sponsor ---------- */
+  .ticker {
+    background: var(--indigo); color: var(--paper);
+    border-bottom: var(--bd-thick);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+    padding: 7px 12px; text-align: center; text-transform: uppercase;
+    white-space: nowrap; overflow: hidden;
+  }
+  .ticker b { color: var(--yellow); }
+
+  /* ---------- Screens ---------- */
+  .screen { display: none; padding: 16px 14px 110px; }
+  .screen.active { display: block; animation: slidein .22s ease; }
+  @keyframes slidein { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  .seclabel {
+    font-family: var(--press); font-size: 10px; text-transform: uppercase;
+    margin: 4px 0 12px; display: inline-block;
+    background: var(--black); color: var(--paper); padding: 6px 10px;
+  }
+  .seclabel.solo { margin-top: 0; }
+
+  /* ---------- Generic block ---------- */
+  .block {
+    background: var(--paper); border: var(--bd-thick); box-shadow: var(--sh);
+    padding: 16px; margin-bottom: 16px;
+  }
+
+  /* ---------- Challenge ---------- */
+  .ch-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; gap: 8px; }
+  .tag {
+    font-family: var(--press); font-size: 9px; text-transform: uppercase;
+    background: var(--orange); color: var(--black); border: var(--bd);
+    padding: 6px 8px; box-shadow: 2px 2px 0 var(--black);
+  }
+  .countdown { font-size: 12px; font-weight: 700; text-align: right; color: var(--rust); }
+
+  .matchup { display: flex; align-items: stretch; gap: 8px; margin-bottom: 12px; }
+  .team { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .crest {
+    width: 100%; height: 64px; border: var(--bd); box-shadow: var(--sh-sm);
+    display: grid; place-items: center; color: #fff;
+    font-family: var(--press); font-size: 15px; letter-spacing: -1px;
+    text-shadow: 1.5px 1.5px 0 rgba(0,0,0,.5);
+  }
+  .team-name { font-size: 12px; font-weight: 700; text-align: center; text-transform: uppercase; line-height: 1.2; }
+  .vs {
+    align-self: center; font-family: var(--press); font-size: 12px;
+    background: var(--black); color: var(--yellow); padding: 8px 7px;
+  }
+
+  .venue { font-size: 12px; text-align: center; margin-bottom: 14px; opacity: .8; }
+  .question {
+    font-size: 19px; font-weight: 700; line-height: 1.3; text-align: center;
+    text-transform: uppercase; margin-bottom: 16px;
+  }
+
+  /* ---------- Options (big touch targets, stacked) ---------- */
+  .options { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+  .opt {
+    width: 100%; min-height: 56px; cursor: pointer; font-family: var(--mono);
+    font-size: 15px; font-weight: 700; text-align: left; text-transform: uppercase;
+    background: var(--paper); color: var(--ink);
+    border: var(--bd-thick); box-shadow: var(--sh-sm);
+    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    transition: transform .05s ease, box-shadow .05s ease;
+  }
+  .opt:active { transform: translate(3px,3px); box-shadow: none; }
+  .opt .tick { font-family: var(--press); font-size: 14px; }
+  .opt.selected { background: var(--yellow); }
+  .opt.correct { background: var(--green); color: #07210f; }
+  .opt.wrong   { background: var(--red); color: #fff; }
+  .opt.locked  { cursor: default; }
+  .opt.locked:active { transform: none; box-shadow: var(--sh-sm); }
+
+  /* ---------- Big buttons ---------- */
+  .btn {
+    width: 100%; min-height: 58px; cursor: pointer; font-family: var(--press);
+    font-size: 13px; text-transform: uppercase; letter-spacing: 0.5px;
+    border: var(--bd-thick); box-shadow: var(--sh); padding: 16px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: transform .05s ease, box-shadow .05s ease;
+  }
+  .btn:active:not(:disabled) { transform: translate(4px,4px); box-shadow: none; }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-primary { background: var(--orange); color: var(--black); }
+  .btn-go { background: var(--green); color: #07210f; }
+  .btn-ghost { background: var(--paper); color: var(--ink); font-family: var(--mono); font-weight: 700; font-size: 14px; box-shadow: var(--sh-sm); min-height: 50px; }
+
+  .micro { font-size: 11.5px; text-align: center; margin-top: 12px; opacity: .75; font-weight: 700; }
+
+  /* ---------- Result ---------- */
+  .result-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .result-emoji {
+    width: 52px; height: 52px; flex: none; display: grid; place-items: center; font-size: 26px;
+    border: var(--bd); box-shadow: var(--sh-sm); background: var(--lav);
+  }
+  .result-head h3 { font-family: var(--press); font-size: 13px; text-transform: uppercase; margin-bottom: 5px; }
+  .result-head p { font-size: 12.5px; font-weight: 700; }
+
+  .pips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+  .pip {
+    width: 26px; height: 26px; border: 2px solid var(--black);
+    display: grid; place-items: center; font-size: 13px; background: var(--paper);
+  }
+  .pip.hit { background: var(--green); }
+  .pip.miss { background: var(--red); }
+  .pip.today { background: var(--yellow); box-shadow: 2px 2px 0 var(--black); }
+
+  .row2 { display: flex; gap: 10px; }
+  .row2 .btn { box-shadow: var(--sh-sm); min-height: 52px; font-size: 11px; }
+
+  /* ---------- Leaderboard ---------- */
+  .tabs2 { display: flex; gap: 8px; margin-bottom: 14px; }
+  .tab2 {
+    flex: 1; cursor: pointer; font-family: var(--press); font-size: 10px; text-transform: uppercase;
+    background: var(--paper); color: var(--ink); border: var(--bd); box-shadow: var(--sh-sm);
+    padding: 12px 6px; transition: transform .05s, box-shadow .05s;
+  }
+  .tab2:active { transform: translate(2px,2px); box-shadow: none; }
+  .tab2.active { background: var(--indigo); color: var(--paper); }
+
+  .board { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+  .lrow {
+    display: flex; align-items: center; gap: 10px; padding: 10px;
+    border: var(--bd); background: var(--paper); box-shadow: var(--sh-sm);
+  }
+  .lrow.me { background: var(--yellow); box-shadow: var(--sh); }
+  .lrank { font-family: var(--press); font-size: 12px; width: 34px; text-align: center; flex: none; }
+  .lav {
+    width: 38px; height: 38px; flex: none; border: 2px solid var(--black);
+    display: grid; place-items: center; font-size: 19px; background: var(--cream);
+  }
+  .lwho { flex: 1; min-width: 0; }
+  .lwho b { display: block; font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lwho span { font-size: 11px; font-weight: 700; opacity: .75; }
+  .lpts { font-family: var(--press); font-size: 11px; text-align: right; }
+
+  /* ---------- Stats ---------- */
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+  .stat {
+    background: var(--paper); border: var(--bd-thick); box-shadow: var(--sh-sm);
+    padding: 16px 12px; text-align: center;
+  }
+  .stat:nth-child(1) { background: var(--yellow); }
+  .stat:nth-child(2) { background: var(--lav); }
+  .stat:nth-child(3) { background: var(--green); }
+  .stat:nth-child(4) { background: var(--red); }
+  .stat b { font-family: var(--press); font-size: 24px; display: block; margin-bottom: 8px; }
+  .stat span { font-size: 11px; font-weight: 700; text-transform: uppercase; }
+
+  /* ---------- Ad slot ---------- */
+  .ad {
+    border: 3px dashed var(--black); background: repeating-linear-gradient(45deg, transparent, transparent 8px, rgba(0,0,0,.04) 8px, rgba(0,0,0,.04) 16px);
+    padding: 22px; text-align: center; font-family: var(--press); font-size: 10px;
+    text-transform: uppercase; color: var(--ink); margin-bottom: 16px;
+  }
+
+  /* ---------- Bottom nav ---------- */
+  .nav {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 45;
+    max-width: 460px; margin: 0 auto;
+    background: var(--paper); border-top: var(--bd-thick);
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0);
+  }
+  .nav button {
+    cursor: pointer; background: var(--paper); border: none; border-right: var(--bd);
+    padding: 10px 4px 12px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+    font-family: var(--press); font-size: 8px; text-transform: uppercase; color: var(--ink);
+  }
+  .nav button:last-child { border-right: none; }
+  .nav button .ico { font-size: 20px; line-height: 1; }
+  .nav button.active { background: var(--orange); }
+  .nav button:active { background: var(--yellow); }
+
+  /* ---------- Modal ---------- */
+  .backdrop {
+    position: fixed; inset: 0; z-index: 60; background: rgba(75,0,130,.45);
+    display: grid; place-items: center; padding: 18px;
+  }
+  .modal {
+    background: var(--paper); border: var(--bd-thick); box-shadow: var(--sh-lg);
+    max-width: 420px; width: 100%; padding: 22px; position: relative;
+  }
+  .modal h2 { font-family: var(--press); font-size: 14px; text-transform: uppercase; margin-bottom: 18px; line-height: 1.5; }
+  .modal-x {
+    position: absolute; top: 14px; right: 14px; width: 34px; height: 34px;
+    border: var(--bd); background: var(--red); color: #fff; font-weight: 700; cursor: pointer;
+    box-shadow: 2px 2px 0 var(--black); font-family: var(--press); font-size: 11px;
+  }
+  .modal-x:active { transform: translate(2px,2px); box-shadow: none; }
+  .how { list-style: none; display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+  .how li { display: flex; gap: 12px; font-size: 13.5px; font-weight: 700; line-height: 1.4; }
+  .how .n {
+    flex: none; width: 30px; height: 30px; background: var(--yellow); border: var(--bd);
+    display: grid; place-items: center; font-family: var(--press); font-size: 11px;
+  }
+
+  /* ---------- Toast ---------- */
+  .toast {
+    position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%) translateY(12px);
+    z-index: 70; background: var(--black); color: var(--paper);
+    border: 3px solid var(--yellow); box-shadow: var(--sh);
+    padding: 12px 18px; font-weight: 700; font-size: 13px; text-align: center;
+    max-width: 90%; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .nbinput { width: 100%; font-family: var(--mono); font-size: 16px; font-weight: 700;
+    padding: 13px 14px; border: var(--bd-thick); box-shadow: var(--sh-sm);
+    background: var(--paper); color: var(--ink); }
+  .nbinput:focus { outline: none; background: #fffef9; }
+  .codepill { font-family: var(--press); font-size: 18px; text-align: center; letter-spacing: 2px;
+    background: var(--yellow); border: var(--bd); box-shadow: var(--sh-sm); padding: 12px; }
+  .authline { font-size: 13px; font-weight: 700; margin-bottom: 12px; }
+  .authline b { font-family: var(--press); font-size: 11px; }
+
+  .hidden { display: none !important; }
+  .pulse { animation: pulse .45s ease; }
+  @keyframes pulse { 0%,100%{transform:none;} 40%{transform:scale(1.18) rotate(-3deg);} }
+
+  .foot { text-align: center; font-size: 11px; font-weight: 700; opacity: .7; padding: 4px 0 8px; }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- ===== Header ===== -->
+    <header class="hdr">
+      <div class="logo">
+        <span class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+            <rect x="6" y="6" width="54" height="54" fill="#000000"/>
+            <rect x="2" y="2" width="54" height="54" fill="#fff3e0" stroke="#000000" stroke-width="4"/>
+            <circle cx="28" cy="29" r="16" fill="#ffffff" stroke="#000000" stroke-width="3"/>
+            <path d="M28 23 L33.7 27.2 L31.5 33.9 L24.5 33.9 L22.3 27.2 Z" fill="#000000"/>
+            <path d="M28 23 L28 14.5 M33.7 27.2 L41.79 24.52 M31.5 33.9 L36.53 40.73 M24.5 33.9 L19.47 40.73 M22.3 27.2 L14.21 24.52" fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M48 9 L49.6 12.4 L53 14 L49.6 15.6 L48 19 L46.4 15.6 L43 14 L46.4 12.4 Z" fill="#ffba08" stroke="#000000" stroke-width="1.8" stroke-linejoin="round"/>
+          </svg>
+        </span>
+        <h1>WorldCup<br><span>Oracle</span></h1>
+      </div>
+      <button class="streak-chip" id="streakChip">🔥 <span id="streakCount">0</span></button>
+    </header>
+
+    <!-- ===== Sponsor ticker ===== -->
+    <div class="ticker" id="ticker"></div>
+
+    <!-- =====================================================================
+         SCREEN: PLAY
+         ===================================================================== -->
+    <section class="screen active" id="screen-play">
+      <span class="seclabel solo">★ Today's Call ★</span>
+
+      <!-- Challenge -->
+      <div class="block">
+        <div class="ch-top">
+          <span class="tag" id="leagueTag">GROUP STAGE</span>
+          <span class="countdown" id="countdown">--:--:--</span>
+        </div>
+        <div class="matchup" id="matchup"></div>
+        <p class="venue" id="venue"></p>
+        <h2 class="question" id="question">Today's prediction…</h2>
+        <div class="options" id="options"></div>
+        <button class="btn btn-primary" id="lockBtn" disabled>Lock It In 🔒</button>
+        <p class="micro" id="microNote">One pick. No takebacks. Choose wisely.</p>
+      </div>
+
+      <!-- Result -->
+      <div class="block hidden" id="resultCard">
+        <div class="result-head">
+          <div class="result-emoji" id="resultEmoji">⏳</div>
+          <div>
+            <h3 id="resultTitle">Locked!</h3>
+            <p id="resultSub">Result drops after the match.</p>
+          </div>
+        </div>
+        <div class="pips" id="pips"></div>
+        <div class="row2">
+          <button class="btn btn-ghost" id="revealBtn">Reveal (demo)</button>
+          <button class="btn btn-go" id="shareBtn">Share 📲</button>
+        </div>
+      </div>
+
+      <!-- Ad -->
+      <div class="ad">— Advertisement —</div>
+    </section>
+
+    <!-- =====================================================================
+         SCREEN: RANKS
+         ===================================================================== -->
+    <section class="screen" id="screen-ranks">
+      <span class="seclabel solo">🏆 Leaderboard</span>
+      <div class="block">
+        <div class="tabs2">
+          <button class="tab2 active" data-board="friends">Friends</button>
+          <button class="tab2" data-board="global">Global</button>
+        </div>
+        <ol class="board" id="board"></ol>
+      </div>
+
+      <!-- Friends (signed in) -->
+      <div class="block" id="friendsBox" style="display:none">
+        <span class="seclabel solo" style="margin-bottom:12px">Your Friend Code</span>
+        <div class="codepill" id="myCode">——</div>
+        <div class="row2" style="margin-top:12px">
+          <input class="nbinput" id="friendCodeInput" placeholder="ENTER CODE" maxlength="6" autocapitalize="characters" />
+          <button class="btn btn-primary" id="addFriendBtn" style="min-height:52px;font-size:11px">Add</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" id="inviteBtn">Invite Friends ＋</button>
+      <button class="btn btn-ghost" id="rankSignInBtn" style="margin-top:10px;display:none">Sign In For Real Ranks</button>
+      <p class="micro">Beat your friends. Screenshot the carnage.</p>
+    </section>
+
+    <!-- =====================================================================
+         SCREEN: STATS
+         ===================================================================== -->
+    <section class="screen" id="screen-stats">
+      <span class="seclabel solo">📊 Your Record</span>
+      <div class="stats-grid">
+        <div class="stat"><b id="statStreak">0</b><span>Streak</span></div>
+        <div class="stat"><b id="statBest">0</b><span>Best</span></div>
+        <div class="stat"><b id="statWins">0</b><span>Correct</span></div>
+        <div class="stat"><b id="statRate">—</b><span>Hit Rate</span></div>
+      </div>
+      <div class="block">
+        <span class="seclabel solo" style="margin-bottom:12px">Last 10</span>
+        <div class="pips" id="pipsStats"></div>
+        <button class="btn btn-go" id="shareBtn2" style="margin-top:6px">Share My Record 📲</button>
+      </div>
+      <div class="block" id="authBox"></div>
+      <button class="btn btn-ghost" id="resetBtn">Reset Progress</button>
+      <p class="foot">Free forever · Bragging rights are the prize 🏆</p>
+    </section>
+
+    <!-- ===== Bottom nav ===== -->
+    <nav class="nav">
+      <button class="active" data-go="play"><span class="ico">⚽</span>Play</button>
+      <button data-go="ranks"><span class="ico">🏆</span>Ranks</button>
+      <button data-go="stats"><span class="ico">📊</span>Stats</button>
+      <button id="howNav"><span class="ico">❓</span>Help</button>
+    </nav>
+  </div>
+
+  <!-- ===== How-to modal ===== -->
+  <div class="backdrop hidden" id="modal">
+    <div class="modal">
+      <button class="modal-x" id="modalX">✕</button>
+      <h2>How To<br>Play</h2>
+      <ol class="how">
+        <li><span class="n">1</span><span><b>One prediction a day.</b> Match winner (or draw!), top scorer, or total goals — same question for everyone.</span></li>
+        <li><span class="n">2</span><span><b>Lock it in.</b> One pick. No takebacks before the match.</span></li>
+        <li><span class="n">3</span><span><b>Build your streak.</b> Right = 🔥 grows. Miss = back to zero.</span></li>
+        <li><span class="n">4</span><span><b>Climb the board.</b> Beat friends, top the ladder, share it.</span></li>
+      </ol>
+      <button class="btn btn-primary" id="modalGo">Let's Go!</button>
+    </div>
+  </div>
+
+  <!-- ===== Sign-in modal ===== -->
+  <div class="backdrop hidden" id="authModal">
+    <div class="modal">
+      <button class="modal-x" id="authX">✕</button>
+      <h2>Sign In</h2>
+      <div id="authStep1">
+        <div id="googleArea" style="margin-bottom:14px">
+          <div id="gsiBtn"></div>
+          <button class="btn btn-ghost" id="googleDemoBtn" style="display:none">Continue with Google</button>
+        </div>
+        <p class="authline" style="text-align:center;opacity:.55;margin:0 0 14px">— or —</p>
+        <p class="authline">Enter your phone — we'll text you a code so your streak &amp; rank are saved and friends can find you.</p>
+        <input class="nbinput" id="phoneInput" placeholder="+91 98XXXXXXXX" inputmode="tel" />
+        <button class="btn btn-primary" id="sendOtpBtn" style="margin-top:14px">Send Code</button>
+      </div>
+      <div id="authStep2" style="display:none">
+        <p class="authline" id="otpHint">Enter the 6-digit code.</p>
+        <input class="nbinput" id="otpInput" placeholder="——————" inputmode="numeric" maxlength="6" />
+        <button class="btn btn-go" id="verifyOtpBtn" style="margin-top:14px">Verify &amp; Sign In</button>
+        <button class="btn btn-ghost" id="otpBackBtn" style="margin-top:10px">← Change number</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script>
+  /* =========================================================================
+     Daily challenge bank — deterministic by date so everyone gets the same Q.
+     ========================================================================= */
+  const CHALLENGE_BANK = [
+    { league:"GROUP A", venue:"Estadio Azteca, Mexico City",
+      home:{name:"Mexico",short:"MEX",color:"#006847"}, away:{name:"Croatia",short:"CRO",color:"#d10a11"},
+      question:"World Cup opener — who wins?", options:["Mexico","Draw","Croatia"], answer:"Mexico", points:100 },
+    { league:"GROUP D", venue:"MetLife Stadium, New Jersey",
+      home:{name:"Argentina",short:"ARG",color:"#6cace4"}, away:{name:"Nigeria",short:"NGA",color:"#008751"},
+      question:"Who scores the most goals?", options:["Lionel Messi","Lautaro Martínez","Julián Álvarez","Victor Osimhen"], answer:"Lautaro Martínez", points:150 },
+    { league:"GROUP C", venue:"SoFi Stadium, Los Angeles",
+      home:{name:"France",short:"FRA",color:"#1f3a93"}, away:{name:"Australia",short:"AUS",color:"#f6c700"},
+      question:"How many goals in the match?", options:["Under 1.5","2 – 3","4 – 5","Over 5"], answer:"4 – 5", points:200 },
+    { league:"GROUP B", venue:"AT&T Stadium, Dallas",
+      home:{name:"Brazil",short:"BRA",color:"#009b3a"}, away:{name:"Morocco",short:"MAR",color:"#c1272d"},
+      question:"Result at full time?", options:["Brazil","Draw","Morocco"], answer:"Draw", points:100 },
+    { league:"GROUP F", venue:"Mercedes-Benz Stadium, Atlanta",
+      home:{name:"England",short:"ENG",color:"#243b7a"}, away:{name:"Netherlands",short:"NED",color:"#f36c21"},
+      question:"Both teams to score?", options:["Yes — both score","No"], answer:"Yes — both score", points:120 },
+    { league:"GROUP H", venue:"NRG Stadium, Houston",
+      home:{name:"Portugal",short:"POR",color:"#d52b1e"}, away:{name:"Ghana",short:"GHA",color:"#006b3f"},
+      question:"Who scores the most goals?", options:["Cristiano Ronaldo","Bruno Fernandes","Rafael Leão","Mohammed Kudus"], answer:"Rafael Leão", points:150 },
+    { league:"ROUND OF 32", venue:"Lumen Field, Seattle",
+      home:{name:"Spain",short:"ESP",color:"#c60b1e"}, away:{name:"Uruguay",short:"URU",color:"#5aa0d8"},
+      question:"Who goes through?", options:["Spain","Uruguay"], answer:"Spain", points:100 },
+    { league:"GROUP E", venue:"Arrowhead Stadium, Kansas City",
+      home:{name:"Germany",short:"GER",color:"#111111"}, away:{name:"USA",short:"USA",color:"#1c3578"},
+      question:"How many goals in the match?", options:["Under 1.5","2 – 3","4 – 5","Over 5"], answer:"2 – 3", points:200 },
+    { league:"GROUP G", venue:"Levi's Stadium, San Francisco",
+      home:{name:"Spain",short:"ESP",color:"#c60b1e"}, away:{name:"Japan",short:"JPN",color:"#1c1c70"},
+      question:"Who scores the most goals?", options:["Lamine Yamal","Pedri","Álvaro Morata","Kaoru Mitoma"], answer:"Lamine Yamal", points:150 },
+    { league:"GROUP J", venue:"BC Place, Vancouver",
+      home:{name:"Netherlands",short:"NED",color:"#f36c21"}, away:{name:"Ecuador",short:"ECU",color:"#14387f"},
+      question:"Result at full time?", options:["Netherlands","Draw","Ecuador"], answer:"Netherlands", points:100 },
+    { league:"ROUND OF 16", venue:"MetLife Stadium, New Jersey",
+      home:{name:"France",short:"FRA",color:"#1f3a93"}, away:{name:"England",short:"ENG",color:"#243b7a"},
+      question:"Who reaches the quarters?", options:["France","England"], answer:"France", points:100 },
+    { league:"QUARTER-FINAL", venue:"AT&T Stadium, Dallas",
+      home:{name:"Argentina",short:"ARG",color:"#6cace4"}, away:{name:"Spain",short:"ESP",color:"#c60b1e"},
+      question:"Goals in 90 minutes?", options:["Under 1.5","2 – 3","4 – 5","Over 5"], answer:"2 – 3", points:200 },
+    { league:"SEMI-FINAL", venue:"SoFi Stadium, Los Angeles",
+      home:{name:"Brazil",short:"BRA",color:"#009b3a"}, away:{name:"France",short:"FRA",color:"#1f3a93"},
+      question:"Who scores the most goals?", options:["Vinícius Júnior","Endrick","Kylian Mbappé","Ousmane Dembélé"], answer:"Kylian Mbappé", points:150 },
+    { league:"FINAL", venue:"MetLife Stadium, New Jersey",
+      home:{name:"Argentina",short:"ARG",color:"#6cace4"}, away:{name:"France",short:"FRA",color:"#1f3a93"},
+      question:"Who lifts the World Cup?", options:["Argentina","France"], answer:"Argentina", points:100 },
+  ];
+
+  const SEED_FRIENDS = [
+    { name:"Messi_GOAT", avatar:"🐐", streak:23, score:4120 },
+    { name:"MbappeFan10", avatar:"⚡", streak:17, score:3890 },
+    { name:"GolazoKing", avatar:"⚽", streak:14, score:3550 },
+    { name:"TikiTakaTom", avatar:"🎯", streak:31, score:3340 },
+    { name:"OffsideOmar", avatar:"🚩", streak:9, score:2980 },
+    { name:"HattrickHarry", avatar:"🎩", streak:12, score:2710 },
+    { name:"KeeperKaren", avatar:"🧤", streak:6, score:2200 },
+    { name:"FreekickFred", avatar:"💫", streak:4, score:1840 },
+    { name:"VAR_Victim", avatar:"📺", streak:2, score:1450 },
+  ];
+
+  const SPONSORS = [
+    "⚽ Powered by <b>KICKR</b> — match-ready boots",
+    "🥤 Hydrate with <b>THANDA</b> on the touchline",
+    "👕 Gear up with <b>TERRACE</b> national kits",
+  ];
+
+  /* =========================================================================
+     App logic — talks to the backend when reachable ("LIVE" mode), and falls
+     back to a self-contained offline demo ("DEMO" mode) so this file still
+     works when you just double-click it with no server running.
+     ========================================================================= */
+  const STORE_KEY = "goal-oracle-nb-v1";
+  const $ = (s) => document.querySelector(s);
+
+  // Where the backend lives. Override at runtime: localStorage.setItem('go_api','https://...').
+  // Default to same-origin when served over http(s) (the deployed single service
+  // serves both this page and /api). Falls back to localhost:3002 for file://.
+  // Override anytime with localStorage.go_api.
+  const API_BASE = (function () {
+    const o = localStorage.getItem("go_api");
+    if (o) return o.replace(/\/$/, "");
+    return location.protocol.startsWith("http") ? "" : "http://localhost:3002";
+  })();
+  // Set this (or localStorage.go_google_client_id) to enable real Google One Tap.
+  // Left blank → a "Continue with Google" demo button that works without setup.
+  const GOOGLE_CLIENT_ID = localStorage.getItem("go_google_client_id") || "";
+
+  let MODE = "offline";        // "online" | "offline"
+  let view = null;             // unified render model both modes populate
+  let pendingPick = null;
+  let currentBoard = "friends";
+  let pollTimer = null;
+  let serverBoard = null;
+  let friendsBoard = null;
+  const srv = { ch: null, pick: null, me: null };
+
+  /* ---------- identity ---------- */
+  // When signed in, go_uid holds the server account id and go_token the session.
+  function uid() {
+    let id = localStorage.getItem("go_uid");
+    if (!id) { id = "u_" + Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); localStorage.setItem("go_uid", id); }
+    return id;
+  }
+  function myName() {
+    let n = localStorage.getItem("go_name");
+    if (!n) { n = "Player" + Math.floor(1000 + Math.random()*9000); localStorage.setItem("go_name", n); }
+    return n;
+  }
+  function authToken() { return localStorage.getItem("go_token"); }
+  function isAuthed() { return !!authToken(); }
+  function refParam() { try { return new URLSearchParams(location.search).get("ref") || ""; } catch { return ""; } }
+
+  function todayKey(d = new Date()) {
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  }
+  function dayNumber(d = new Date()) {
+    return Math.floor((d - new Date(d.getFullYear(),0,0)) / 86400000) + d.getFullYear()*366;
+  }
+  function fmt(ms) {
+    ms = Math.max(0, ms);
+    const h = String(Math.floor(ms/3600000)).padStart(2,"0");
+    const m = String(Math.floor((ms%3600000)/60000)).padStart(2,"0");
+    const s = String(Math.floor((ms%60000)/1000)).padStart(2,"0");
+    return `${h}:${m}:${s}`;
+  }
+
+  /* ---------- API helper (with timeout) ---------- */
+  async function api(path, opts = {}, ms = 4000) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const tok = authToken();
+      const res = await fetch(API_BASE + path, { ...opts, signal: ctrl.signal,
+        headers: { "Content-Type": "application/json", ...(tok ? { Authorization: "Bearer " + tok } : {}), ...(opts.headers||{}) } });
+      if (!res.ok) { let body=null; try { body = await res.json(); } catch {} const e = new Error("http "+res.status); e.status = res.status; e.body = body; throw e; }
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  /* =========================================================================
+     OFFLINE state (localStorage demo)
+     ========================================================================= */
+  const defaultState = () => ({ streak:0, best:0, wins:0, played:0, history:[], today:null, baseScore:1000 });
+  function loadLocal() {
+    try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); return s && typeof s==="object" ? {...defaultState(),...s} : defaultState(); }
+    catch { return defaultState(); }
+  }
+  function saveLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(localState)); }
+  let localState = loadLocal();
+  const offlineChallenge = CHALLENGE_BANK[dayNumber() % CHALLENGE_BANK.length];
+
+  (function rollDay() {
+    const tk = todayKey();
+    if (localState.today && localState.today.date !== tk) {
+      if (localState.today.locked && !localState.today.revealed) gradeLocal(localState.today, true);
+      localState.today = null; saveLocal();
+    }
+  })();
+
+  function gradeLocal(today, silent = false) {
+    if (today.revealed) return;
+    const correct = today.pick === offlineChallenge.answer;
+    today.correct = correct; today.revealed = true;
+    localState.played += 1;
+    localState.history.push({ date: today.date, correct });
+    if (localState.history.length > 30) localState.history = localState.history.slice(-30);
+    if (correct) { localState.wins+=1; localState.streak+=1; localState.best=Math.max(localState.best,localState.streak); localState.baseScore += offlineChallenge.points + localState.streak*10; }
+    else { localState.streak = 0; }
+    saveLocal();
+    return correct;
+  }
+
+  /* =========================================================================
+     Build the unified VIEW from each source
+     ========================================================================= */
+  function viewFromLocal() {
+    const t = localState.today;
+    return {
+      challenge: offlineChallenge, options: offlineChallenge.options,
+      lockTime: null,
+      myPick: t ? t.pick : null,
+      locked: !!(t && t.locked),
+      resolved: !!(t && t.revealed),
+      correct: t ? t.correct : null,
+      answer: (t && t.revealed) ? offlineChallenge.answer : null,
+      canReveal: !!(t && t.locked && !t.revealed),
+      lockedOut: false,
+      stats: { streak:localState.streak, best:localState.best, wins:localState.wins, played:localState.played, score:localState.baseScore, history:localState.history.slice(-10) },
+    };
+  }
+
+  function viewFromServer() {
+    const ch = srv.ch, pick = srv.pick, me = srv.me;
+    const resolved = ch.status === "resolved";
+    const locked = ch.status !== "open" || !!(pick && pick.locked);
+    return {
+      challenge: ch, options: ch.options,
+      lockTime: ch.lockTime,
+      myPick: pick ? pick.option : null,
+      locked,
+      resolved: resolved && !!(pick && pick.option),
+      correct: pick ? pick.correct : null,
+      answer: resolved ? ch.answer : null,
+      canReveal: false,                                  // ← no demo reveal in live mode
+      lockedOut: ch.status !== "open" && !(pick && pick.option),
+      stats: me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) }
+                : { streak:0, best:0, wins:0, played:0, score:0, history:[] },
+    };
+  }
+
+  async function refreshServer() {
+    srv.ch = await api("/api/today");
+    const d = srv.ch.date;
+    const [pick, me] = await Promise.all([
+      api(`/api/pick/${d}/${uid()}`).catch(() => ({ option:null, locked:false, correct:null })),
+      api(`/api/me/${uid()}`).catch(() => null),
+    ]);
+    srv.pick = pick && pick.option ? pick : null;
+    srv.me = me;
+    // keep account display info fresh when signed in
+    if (isAuthed() && me) {
+      if (me.name) localStorage.setItem("go_name", me.name);
+      if (me.inviteCode) localStorage.setItem("go_code", me.inviteCode);
+    }
+    view = viewFromServer();
+  }
+  async function fetchServerBoard() { try { serverBoard = await api("/api/leaderboard"); } catch { serverBoard = null; } }
+
+  /* =========================================================================
+     Renderers (read `view`)
+     ========================================================================= */
+  function renderTicker() {
+    const tag = MODE === "online" ? "🟢 LIVE" : "🟡 DEMO";
+    $("#ticker").innerHTML = `${tag} · ` + SPONSORS[dayNumber() % SPONSORS.length];
+  }
+
+  function renderChallenge() {
+    const ch = view.challenge;
+    $("#leagueTag").textContent = ch.league;
+    $("#venue").textContent = "📍 " + ch.venue;
+    $("#question").textContent = ch.question;
+    const crest = (tm) => `<div class="team"><div class="crest" style="background:${tm.color}">${tm.short}</div><div class="team-name">${tm.name}</div></div>`;
+    $("#matchup").innerHTML = crest(ch.home) + `<div class="vs">VS</div>` + crest(ch.away);
+
+    $("#options").innerHTML = view.options.map((o,i) =>
+      `<button class="opt" data-opt="${i}"><span>${o}</span><span class="tick"></span></button>`).join("");
+    $("#options").querySelectorAll(".opt").forEach((btn) =>
+      btn.addEventListener("click", () => { if (view.locked) return; onSelect(view.options[btn.dataset.opt]); }));
+
+    restoreUI();
+  }
+
+  function onSelect(value) {
+    pendingPick = value;
+    document.querySelectorAll("#options .opt").forEach((b) =>
+      b.classList.toggle("selected", b.querySelector("span").textContent === value));
+    $("#lockBtn").disabled = false;
+  }
+
+  function markOptions() {
+    document.querySelectorAll("#options .opt").forEach((b) => {
+      const label = b.querySelector("span").textContent;
+      if (view.answer && label === view.answer) { b.classList.add("correct"); b.querySelector(".tick").textContent = "✓"; }
+      if (view.myPick && label === view.myPick && view.answer && label !== view.answer) { b.classList.add("wrong"); b.querySelector(".tick").textContent = "✕"; }
+    });
+  }
+
+  function restoreUI() {
+    if (view.locked) {
+      document.querySelectorAll("#options .opt").forEach((b) => {
+        b.classList.add("locked");
+        b.classList.toggle("selected", b.querySelector("span").textContent === view.myPick);
+      });
+      $("#lockBtn").classList.add("hidden");
+      if (view.myPick) {
+        $("#resultCard").classList.remove("hidden");
+        $("#microNote").textContent = "You're locked in for today.";
+        if (view.resolved) markOptions();
+        renderResult();
+      } else {
+        $("#resultCard").classList.add("hidden");
+        $("#microNote").textContent = "Picks are locked — come back tomorrow.";
+      }
+    } else {
+      $("#lockBtn").classList.remove("hidden");
+      $("#lockBtn").disabled = !pendingPick;
+      $("#resultCard").classList.add("hidden");
+      $("#microNote").textContent = "One pick. No takebacks. Choose wisely.";
+    }
+  }
+
+  function renderResult() {
+    const reveal = $("#revealBtn");
+    if (view.resolved) {
+      $("#resultEmoji").textContent = view.correct ? "✅" : "❌";
+      $("#resultTitle").textContent = view.correct ? "Nailed It!" : "So Close!";
+      $("#resultSub").textContent = view.correct ? `Streak now ${view.stats.streak} 🔥` : `Answer: ${view.answer}. Back tomorrow!`;
+      reveal.classList.add("hidden");
+    } else {
+      $("#resultEmoji").textContent = "⏳";
+      $("#resultTitle").textContent = "Locked!";
+      if (view.canReveal) { $("#resultSub").textContent = "Tap reveal to simulate the result."; reveal.classList.remove("hidden"); }
+      else { $("#resultSub").textContent = "Result drops automatically after the match."; reveal.classList.add("hidden"); }
+    }
+    renderPips();
+  }
+
+  function pipHTML(includeToday) {
+    const hist = view.stats.history;
+    let html = hist.map((h) => `<div class="pip ${h.correct?"hit":"miss"}">${h.correct?"⚽":"·"}</div>`).join("");
+    if (includeToday) html += `<div class="pip today">${view.resolved ? (view.correct?"⚽":"·") : "?"}</div>`;
+    return html;
+  }
+  function renderPips() {
+    $("#pips").innerHTML = pipHTML(true);
+    $("#pipsStats").innerHTML = view.stats.history.length ? pipHTML(false) : '<span style="font-size:12px;font-weight:700;opacity:.6">No picks yet — play today!</span>';
+  }
+
+  function renderStreakChip(pulse) {
+    $("#streakCount").textContent = view.stats.streak;
+    if (pulse) { const c = $("#streakChip"); c.classList.remove("pulse"); void c.offsetWidth; c.classList.add("pulse"); }
+  }
+
+  function renderStats() {
+    $("#statStreak").textContent = view.stats.streak;
+    $("#statBest").textContent = view.stats.best;
+    $("#statWins").textContent = view.stats.wins;
+    $("#statRate").textContent = view.stats.played ? Math.round((view.stats.wins/view.stats.played)*100)+"%" : "—";
+    renderPips();
+  }
+
+  function mapServerRows(list) {
+    return list.map((r) => ({ name: r.userId===uid() ? "YOU" : (r.name||"Anon"),
+      avatar: r.userId===uid() ? "🧢" : "⚽", streak:r.streak, score:r.score, me: r.userId===uid() }));
+  }
+
+  function renderBoard(which) {
+    currentBoard = which;
+    const me = { name:"YOU", avatar:"🧢", streak:view.stats.streak, score:view.stats.score, me:true };
+    let rows;
+    if (MODE === "online" && which === "global" && serverBoard) {
+      rows = mapServerRows(serverBoard);
+      if (!rows.some((r) => r.me)) rows.push(me);
+    } else if (MODE === "online" && which === "friends" && isAuthed() && friendsBoard) {
+      rows = mapServerRows(friendsBoard);
+      if (!rows.some((r) => r.me)) rows.push(me);
+    } else {
+      // demo seeds (offline, or signed-out friends tab)
+      rows = SEED_FRIENDS.map((f) => ({...f}));
+      if (which === "global") rows = rows.map((f,i) => ({...f, score: f.score + 1500 + i*130}));
+      rows.push(me);
+    }
+    rows.sort((a,b) => b.score - a.score);
+    $("#board").innerHTML = rows.map((r,i) => `
+      <li class="lrow ${r.me?"me":""}">
+        <span class="lrank">${i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
+        <span class="lav">${r.avatar||"⚽"}</span>
+        <span class="lwho"><b>${r.name}</b><span>🔥 ${r.streak} streak</span></span>
+        <span class="lpts">${(r.score||0).toLocaleString()}</span>
+      </li>`).join("");
+  }
+
+  async function fetchFriendsBoard() {
+    if (!isAuthed()) { friendsBoard = null; return; }
+    try { friendsBoard = await api("/api/leaderboard?scope=friends"); } catch { friendsBoard = null; }
+  }
+
+  /* ---------- Accounts UI ---------- */
+  function renderAuthUI() {
+    const authed = isAuthed();
+    const code = localStorage.getItem("go_code") || "——";
+    // Stats-screen account box
+    const box = $("#authBox");
+    if (box) {
+      if (authed) {
+        box.innerHTML = `<p class="authline">Signed in as <b>${localStorage.getItem("go_name")||"Player"}</b></p>
+          <p class="micro" style="text-align:left;margin-bottom:12px">Your streak, rank &amp; friends are saved to your account.</p>
+          <button class="btn btn-ghost" id="signOutBtn">Sign Out</button>`;
+        const so = $("#signOutBtn"); if (so) so.addEventListener("click", signOut);
+      } else {
+        box.innerHTML = `<p class="authline">Play anonymously, or sign in to <b>save your streak</b> and add friends.</p>
+          <button class="btn btn-primary" id="signInBtn">Sign In</button>`;
+        const si = $("#signInBtn"); if (si) si.addEventListener("click", openAuth);
+      }
+    }
+    // Ranks-screen friends box
+    const fb = $("#friendsBox"), rsi = $("#rankSignInBtn");
+    if (fb) fb.style.display = authed ? "block" : "none";
+    if (rsi) rsi.style.display = authed ? "none" : "block";
+    const mc = $("#myCode"); if (mc) mc.textContent = code;
+  }
+
+  function renderAll() {
+    renderTicker(); renderChallenge(); renderStats(); renderStreakChip(false); renderBoard(currentBoard); tickCountdown(); renderAuthUI();
+  }
+
+  /* ---------- Actions ---------- */
+  async function onLock() {
+    if (!pendingPick || view.locked) return;
+    if (MODE === "online") {
+      $("#lockBtn").disabled = true;
+      try {
+        await api("/api/pick", { method:"POST", body: JSON.stringify({ userId: uid(), name: myName(), option: pendingPick }) });
+        await refreshServer(); renderAll(); toast("Locked in 🔒 Good luck!"); startPolling();
+      } catch (e) {
+        if (e.status === 409) { await refreshServer(); renderAll(); toast("⚠ Picks are locked for this match"); }
+        else { $("#lockBtn").disabled = false; toast("⚠ " + (e.body?.error || "Couldn't reach the server")); }
+      }
+    } else {
+      localState.today = { date: todayKey(), pick: pendingPick, locked:true, revealed:false, correct:null };
+      saveLocal(); view = viewFromLocal(); renderAll(); toast("Locked in 🔒 Good luck!");
+    }
+  }
+
+  function onReveal() {            // offline demo only
+    if (MODE !== "offline" || !localState.today || !localState.today.locked) return;
+    const correct = gradeLocal(localState.today, false);
+    view = viewFromLocal(); renderAll(); renderStreakChip(true);
+    toast(correct ? `CORRECT! +${view.challenge.points} pts 🎉` : "MISSED! Streak reset 💔");
+  }
+
+  function startPolling() {
+    stopPolling();
+    if (MODE !== "online") return;
+    pollTimer = setInterval(async () => {
+      const was = view.resolved;
+      try { await refreshServer(); } catch { return; }
+      renderAll();
+      if (view.resolved && !was) {
+        renderStreakChip(true);
+        toast(view.correct ? "CORRECT! 🎉 +points" : "MISSED! Streak reset 💔");
+        if (currentBoard === "global") { await fetchServerBoard(); renderBoard("global"); }
+        stopPolling();
+      }
+    }, 15000);
+  }
+  function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+  /* ---------- Share ---------- */
+  function buildShareText() {
+    const ch = view.challenge;
+    const hist = view.stats.history.slice(-7).map((h) => h.correct?"🟩":"🟥").join("");
+    let line = view.resolved ? (view.correct?"✅ Called it!":"❌ Missed it.") : (view.myPick ? "🔒 Locked in." : "👀 Predicting…");
+    return `⚽ GOAL ORACLE — World Cup 2026 — ${todayKey()}\n${ch.home.short} v ${ch.away.short}: ${line}\n🔥 Streak ${view.stats.streak} · Best ${view.stats.best}\n${hist || "▫️▫️▫️"}\n\nPlay daily 👉 goaloracle.app`;
+  }
+  async function shareResult() {
+    const text = buildShareText();
+    if (navigator.share) { try { await navigator.share({ title:"Goal Oracle", text }); return; } catch {} }
+    try { await navigator.clipboard.writeText(text); toast("Copied — paste anywhere 📋"); }
+    catch { toast("Share:\n" + text); }
+  }
+
+  /* ---------- Countdown ---------- */
+  function tickCountdown() {
+    const el = $("#countdown");
+    if (!view) return;
+    if (view.resolved) { el.textContent = "✓ RESOLVED"; return; }
+    if (MODE === "online") {
+      if (!view.lockTime) { el.textContent = ""; return; }
+      const lock = new Date(view.lockTime).getTime();
+      el.textContent = Date.now() < lock ? "⏱ " + fmt(lock - Date.now()) : (view.myPick ? "✓ LOCKED" : "🔒 LOCKED");
+    } else {
+      if (view.locked) { el.textContent = "✓ LOCKED"; return; }
+      const now = new Date(); const end = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,0);
+      el.textContent = "⏱ " + fmt(end - now);
+    }
+  }
+
+  /* ---------- Nav / toast / modal ---------- */
+  function goScreen(name) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("active", s.id === "screen-"+name));
+    document.querySelectorAll(".nav button[data-go]").forEach((b) => b.classList.toggle("active", b.dataset.go === name));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  let toastTimer;
+  function toast(msg) {
+    const el = $("#toast"); el.textContent = msg;
+    el.classList.remove("hidden"); void el.offsetWidth; el.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+  }
+  function openModal() { $("#modal").classList.remove("hidden"); }
+  function closeModal() { $("#modal").classList.add("hidden"); }
+
+  /* ---------- Accounts / friends actions ---------- */
+  function openAuth() {
+    if (MODE !== "online") { toast("⚠ Sign-in needs the live server running"); return; }
+    $("#authStep1").style.display = "block"; $("#authStep2").style.display = "none";
+    $("#phoneInput").value = ""; $("#otpInput").value = "";
+    $("#authModal").classList.remove("hidden");
+    setupGoogle();
+  }
+  function closeAuth() { $("#authModal").classList.add("hidden"); }
+
+  async function sendOtp() {
+    const phone = $("#phoneInput").value.trim();
+    if (phone.replace(/\D/g,"").length < 7) { toast("Enter a valid phone number"); return; }
+    $("#sendOtpBtn").disabled = true;
+    try {
+      const r = await api("/api/auth/request-otp", { method:"POST", body: JSON.stringify({ phone }) });
+      $("#authStep1").style.display = "none"; $("#authStep2").style.display = "block";
+      $("#otpHint").innerHTML = r.devCode
+        ? `Demo mode — your code is <b>${r.devCode}</b>` : "Enter the 6-digit code we texted you.";
+      if (r.devCode) $("#otpInput").value = r.devCode;
+      $("#otpInput").focus();
+    } catch (e) { toast("⚠ " + (e.body?.error || "Couldn't send code")); }
+    finally { $("#sendOtpBtn").disabled = false; }
+  }
+
+  async function verifyOtp() {
+    const phone = $("#phoneInput").value.trim();
+    const code = $("#otpInput").value.trim();
+    $("#verifyOtpBtn").disabled = true;
+    try {
+      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ phone, code, ref: refParam() }) });
+      await finishLogin(r);
+    } catch (e) { toast("⚠ " + (e.body?.error || "Verification failed")); }
+    finally { $("#verifyOtpBtn").disabled = false; }
+  }
+
+  /* Store the session and refresh into the signed-in state (shared by phone + Google). */
+  async function finishLogin(r) {
+    localStorage.setItem("go_token", r.token);
+    localStorage.setItem("go_uid", r.userId);
+    localStorage.setItem("go_name", r.name || "Player");
+    localStorage.setItem("go_code", r.inviteCode || "");
+    closeAuth();
+    await refreshServer(); await fetchServerBoard(); await fetchFriendsBoard();
+    renderAll();
+    if (view.myPick && !view.resolved) startPolling();
+    toast("Signed in ✓ Welcome, " + (r.name || "Player"));
+  }
+
+  /* ---- Google Sign-In / One Tap ---- */
+  async function loginGoogle(credential) {
+    try {
+      const r = await api("/api/auth/google", { method:"POST", body: JSON.stringify({ credential, ref: refParam() }) });
+      await finishLogin(r);
+    } catch (e) { toast("⚠ " + (e.body?.error || "Google sign-in failed")); }
+  }
+
+  function setupGoogle() {
+    const demoBtn = $("#googleDemoBtn"), gsi = $("#gsiBtn");
+    // Real One Tap when a client id is configured and the GSI script has loaded.
+    if (GOOGLE_CLIENT_ID && window.google && google.accounts && google.accounts.id) {
+      demoBtn.style.display = "none"; gsi.style.display = "block"; gsi.innerHTML = "";
+      google.accounts.id.initialize({ client_id: GOOGLE_CLIENT_ID, callback: (resp) => loginGoogle(resp.credential) });
+      google.accounts.id.renderButton(gsi, { theme: "filled_black", size: "large", width: 280, text: "continue_with" });
+      google.accounts.id.prompt();   // the actual One Tap
+    } else {
+      // Demo mode — no Google project needed.
+      gsi.style.display = "none"; demoBtn.style.display = "block";
+    }
+  }
+
+  function googleDemoLogin() {
+    let sub = localStorage.getItem("go_gmock");
+    if (!sub) { sub = "g_" + Math.random().toString(36).slice(2,12); localStorage.setItem("go_gmock", sub); }
+    const profile = { sub, email: sub + "@gmail.com", name: "Google User" };
+    const credential = "mock." + btoa(JSON.stringify(profile)).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+    loginGoogle(credential);
+  }
+
+  function signOut() {
+    ["go_token","go_uid","go_name","go_code"].forEach((k) => localStorage.removeItem(k));
+    friendsBoard = null; stopPolling();
+    location.reload();
+  }
+
+  async function addFriend() {
+    const code = ($("#friendCodeInput").value || "").trim().toUpperCase();
+    if (code.length < 4) { toast("Enter your friend's code"); return; }
+    try {
+      const r = await api("/api/friends/add", { method:"POST", body: JSON.stringify({ code }) });
+      $("#friendCodeInput").value = "";
+      await fetchFriendsBoard(); renderBoard("friends");
+      document.querySelectorAll(".tab2").forEach((t) => t.classList.toggle("active", t.dataset.board==="friends"));
+      toast("Added " + (r.friend?.name || "friend") + " 🤝");
+    } catch (e) { toast("⚠ " + (e.body?.error || "Couldn't add friend")); }
+  }
+
+  /* ---------- Init ---------- */
+  function bindEvents() {
+    $("#lockBtn").addEventListener("click", onLock);
+    $("#revealBtn").addEventListener("click", onReveal);
+    $("#shareBtn").addEventListener("click", shareResult);
+    $("#shareBtn2").addEventListener("click", shareResult);
+    $("#streakChip").addEventListener("click", () =>
+      toast(view.stats.streak ? `🔥 ${view.stats.streak}-day streak — keep it alive!` : "Make a pick to start your streak 🔥"));
+    $("#inviteBtn").addEventListener("click", async () => {
+      const code = localStorage.getItem("go_code") || uid().slice(-5);
+      const link = (location.origin !== "null" ? location.origin + location.pathname : "https://goaloracle.app") + "?ref=" + code;
+      const msg = isAuthed() ? "Invite link copied 🔗 (friends auto-add when they join)" : "Invite link copied 🔗";
+      try { await navigator.clipboard.writeText(link); toast(msg); }
+      catch { toast("Share: " + link); }
+    });
+    $("#resetBtn").addEventListener("click", () => {
+      if (confirm("Reset your progress on this device? (Starts a fresh player.)")) {
+        ["go_uid","go_name","go_seen","go_token","go_code",STORE_KEY].forEach((k) => localStorage.removeItem(k));
+        location.reload();
+      }
+    });
+
+    document.querySelectorAll(".tab2").forEach((tab) =>
+      tab.addEventListener("click", async () => {
+        document.querySelectorAll(".tab2").forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        if (MODE === "online" && tab.dataset.board === "global" && !serverBoard) await fetchServerBoard();
+        if (MODE === "online" && tab.dataset.board === "friends" && isAuthed() && !friendsBoard) await fetchFriendsBoard();
+        renderBoard(tab.dataset.board);
+      }));
+
+    document.querySelectorAll(".nav button[data-go]").forEach((b) =>
+      b.addEventListener("click", () => goScreen(b.dataset.go)));
+    $("#howNav").addEventListener("click", openModal);
+    $("#modalX").addEventListener("click", closeModal);
+    $("#modalGo").addEventListener("click", closeModal);
+
+    // accounts / friends
+    $("#rankSignInBtn").addEventListener("click", openAuth);
+    $("#authX").addEventListener("click", closeAuth);
+    $("#sendOtpBtn").addEventListener("click", sendOtp);
+    $("#verifyOtpBtn").addEventListener("click", verifyOtp);
+    $("#otpBackBtn").addEventListener("click", () => { $("#authStep2").style.display="none"; $("#authStep1").style.display="block"; });
+    $("#addFriendBtn").addEventListener("click", addFriend);
+    $("#googleDemoBtn").addEventListener("click", googleDemoLogin);
+  }
+
+  /* Upgrade to LIVE in the background — never blocks first paint. */
+  async function tryOnline() {
+    try {
+      await api("/api/health", {}, 2500);
+      MODE = "online";
+      await refreshServer();
+      await fetchServerBoard();
+      if (isAuthed()) await fetchFriendsBoard();
+      renderAll();
+      if (view.myPick && !view.resolved) startPolling();
+    } catch { /* no backend reachable — stay in DEMO mode */ }
+  }
+
+  function init() {
+    // Paint the game instantly in DEMO mode; don't wait on the network.
+    view = viewFromLocal();
+    renderAll();
+    bindEvents();
+    if (!localStorage.getItem("go_seen")) { openModal(); localStorage.setItem("go_seen","1"); }
+    setInterval(tickCountdown, 1000);
+    tryOnline();
+  }
+  document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "cricket-oracle",
+  "version": "1.0.0",
+  "description": "Daily cricket prediction game — one pick a day, streaks, leaderboards, bragging rights.",
+  "scripts": {
+    "start": "npx --yes serve -l 5173 .",
+    "dev": "npx --yes serve -l 5173 ."
+  },
+  "keywords": ["cricket", "prediction", "game", "daily", "ipl"],
+  "license": "MIT"
+}

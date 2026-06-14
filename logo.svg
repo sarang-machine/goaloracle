@@ -1,0 +1,17 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Cricket Oracle">
+  <!-- hard offset shadow (neobrutalist) -->
+  <rect x="6" y="6" width="54" height="54" fill="#000000"/>
+  <!-- cream tile -->
+  <rect x="2" y="2" width="54" height="54" fill="#fff3e0" stroke="#000000" stroke-width="4"/>
+  <!-- ball body -->
+  <circle cx="28" cy="29" r="16" fill="#ff6b35" stroke="#000000" stroke-width="3"/>
+  <!-- top-left shine -->
+  <path d="M18 24 A 13 13 0 0 1 27 15" fill="none" stroke="#ffd166" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- seam band -->
+  <path d="M28 13 C 40 20, 40 38, 28 45" fill="none" stroke="#fff3e0" stroke-width="5"/>
+  <!-- seam stitches -->
+  <path d="M28 13 C 40 20, 40 38, 28 45" fill="none" stroke="#000000" stroke-width="5" stroke-dasharray="1.5 5" stroke-linecap="round"/>
+  <!-- oracle sparkle (prediction / foresight) -->
+  <path d="M48 9 L49.6 12.4 L53 14 L49.6 15.6 L48 19 L46.4 15.6 L43 14 L46.4 12.4 Z"
+        fill="#ffba08" stroke="#000000" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>

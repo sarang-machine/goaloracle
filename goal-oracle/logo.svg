@@ -1,0 +1,16 @@
+<svg viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Goal Oracle">
+  <!-- hard offset shadow (neobrutalist) -->
+  <rect x="6" y="6" width="54" height="54" fill="#000000"/>
+  <!-- cream tile -->
+  <rect x="2" y="2" width="54" height="54" fill="#fff3e0" stroke="#000000" stroke-width="4"/>
+  <!-- football -->
+  <circle cx="28" cy="29" r="16" fill="#ffffff" stroke="#000000" stroke-width="3"/>
+  <!-- centre pentagon -->
+  <path d="M28 23 L33.7 27.2 L31.5 33.9 L24.5 33.9 L22.3 27.2 Z" fill="#000000"/>
+  <!-- seams -->
+  <path d="M28 23 L28 14.5 M33.7 27.2 L41.79 24.52 M31.5 33.9 L36.53 40.73 M24.5 33.9 L19.47 40.73 M22.3 27.2 L14.21 24.52"
+        fill="none" stroke="#000000" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- oracle sparkle (prediction / foresight) -->
+  <path d="M48 9 L49.6 12.4 L53 14 L49.6 15.6 L48 19 L46.4 15.6 L43 14 L46.4 12.4 Z"
+        fill="#ffba08" stroke="#000000" stroke-width="1.8" stroke-linejoin="round"/>
+</svg>
