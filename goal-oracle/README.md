@@ -29,12 +29,13 @@ bottom tab bar, streaks, leaderboard, share, LIVE/DEMO modes). Re-themed:
 ## Modes
 
 - **🟡 DEMO** (default) — fully self-contained, results via the demo Reveal button.
-- **🟢 LIVE** — runs against the backend (defaults to `http://localhost:3002`;
-  override with `localStorage.setItem("go_api","…")`). Start a football instance:
+- **🟢 LIVE** — the backend serves this front-end and the API on one origin.
   ```bash
   cd ../server && npm install
-  SPORT=football PORT=3002 npm start
+  node src/server.js
   ```
+  Then open **http://localhost:3001** (football is the server's default). The app
+  uses the same origin automatically; override with `localStorage.setItem("go_api","…")`.
   In LIVE mode results resolve automatically (no Reveal button), and you can
   **sign in by phone (OTP)** to save your streak/rank and **add friends** by
   invite code — the Friends leaderboard then shows your real graph. Swap the

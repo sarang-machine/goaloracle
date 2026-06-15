@@ -60,8 +60,9 @@ const FOOTBALL_BANK = [
     type:"winner", question:"Who lifts the World Cup?", options:["Argentina","France"], points:100 },
 ];
 
-/* Pick the bank by sport (default cricket). */
-export const BANK = (process.env.SPORT || "cricket").toLowerCase() === "football" ? FOOTBALL_BANK : CRICKET_BANK;
+/* Pick the bank by sport. Defaults to football (Goal Oracle) — the app this
+   server is set up to serve/deploy. Run cricket with SPORT=cricket. */
+export const BANK = (process.env.SPORT || "football").toLowerCase() === "cricket" ? CRICKET_BANK : FOOTBALL_BANK;
 
 /* Local YYYY-MM-DD key. */
 export function dateKey(d = new Date()) {

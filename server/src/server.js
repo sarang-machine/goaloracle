@@ -204,5 +204,5 @@ if (cron.validate(CRON)) {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`Oracle server on :${PORT}  (sport: ${process.env.SPORT || "cricket"}, provider: ${process.env.PROVIDER || "mock"})`);
+  console.log(`Oracle server on :${PORT}  (sport: ${process.env.SPORT || "football"}, provider: ${process.env.PROVIDER || "mock"})`);
 });

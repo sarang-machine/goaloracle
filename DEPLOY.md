@@ -82,7 +82,11 @@ origins*, and in the browser run
 
 ## Run the production build locally first (sanity check)
 ```bash
-cd server && npm install
-SPORT=football PORT=3002 node src/server.js
-# open http://localhost:3002  → front-end + API on one port, 🟢 LIVE
+cd server
+npm install
+node src/server.js
 ```
+Then open **http://localhost:3001** → the Goal Oracle front-end + API on one
+port, in 🟢 LIVE mode. No env vars needed (football is the default; the server
+serves the `goal-oracle/` front-end). To run the cricket version instead, set
+`SPORT=cricket` and `STATIC_DIR=..` (PowerShell: `$env:SPORT="cricket"`).
