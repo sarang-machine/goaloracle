@@ -122,11 +122,13 @@ curl -X POST $URL/api/admin/publish -H "X-Admin-Token: $ADMIN_TOKEN" \
 
 ## Accounts & friends
 
-Two login options, both issuing the same **stateless HMAC token** (no session store):
+Two login options, both issuing the same **stateless HMAC token** (no session
+store), and **unified by email** (Google + email sign-in land on one account):
 
-- **Phone OTP** — the standard for Indian consumer apps. `SMS_PROVIDER=mock`
-  (default) prints/returns the code so it runs with zero setup; swap in
-  MSG91/Twilio in `src/auth.js` to go live.
+- **Email OTP** — a 6-digit code emailed to the user. `EMAIL_PROVIDER=mock`
+  (default) prints/returns the code so it runs with zero setup; set
+  `EMAIL_PROVIDER=resend` + `RESEND_API_KEY` + `EMAIL_FROM` to send real email
+  (free tier at resend.com; no SMS fees or India DLT registration).
 - **Google Sign-In / One Tap** — leave `GOOGLE_CLIENT_ID` blank for dev (the
   front-end shows a working "Continue with Google" demo button). To go live:
   create an OAuth Web Client ID, add your origin to *Authorized JavaScript

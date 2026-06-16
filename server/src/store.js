@@ -109,8 +109,9 @@ export async function getUser(userId) {
 export async function saveUser(user) { (await read()).users[user.userId] = user; await flush(); return user; }
 export async function allUsers() { return Object.values((await read()).users); }
 
-export async function findUserByPhone(phone) {
-  return (await allUsers()).find((u) => u.phone === phone) || null;
+export async function findUserByEmail(email) {
+  const e = String(email || "").toLowerCase();
+  return (await allUsers()).find((u) => (u.email || "").toLowerCase() === e) || null;
 }
 export async function findUserByGoogle(googleId) {
   return (await allUsers()).find((u) => u.googleId === googleId) || null;

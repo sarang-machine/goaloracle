@@ -1,62 +1,74 @@
 /* =========================================================================
-   auth.js — phone-OTP login + stateless session tokens.
+   auth.js — email-OTP + Google login, with stateless session tokens.
 
-   - requestOtp(phone): generates a 6-digit code, "sends" it via the SMS
-     provider, and stores it (hashed window) for verification.
-   - verifyOtp(phone, code): checks the code, returns the authenticated user.
-   - signToken(userId) / verifyToken(token): stateless HMAC session tokens
-     (no session store needed). Swap the SMS provider for Twilio / MSG91 to
-     go live; the rest is unchanged.
+   - requestOtp(email): emails a 6-digit code and stores it for verification.
+   - verifyOtp(email, code): checks it, returns the authenticated user.
+   - loginWithGoogle(credential): verifies a Google ID token.
+   Accounts are unified by email, so Google and email sign-in land on the same
+   account. Swap the email provider (Resend/SMTP) to go live; rest is unchanged.
    ========================================================================= */
 
 import crypto from "node:crypto";
-import { getUser, saveUser, findUserByPhone, findUserByGoogle, setOtp, getOtp, clearOtp } from "./store.js";
+import { getUser, saveUser, findUserByEmail, findUserByGoogle, setOtp, getOtp, clearOtp } from "./store.js";
 
 const SECRET = process.env.AUTH_SECRET || "dev-auth-secret-change-me";
 const OTP_TTL_MS = 5 * 60 * 1000;
 
-/* ---- SMS provider (mock by default) ---- */
-async function sendSms(phone, code) {
-  const provider = (process.env.SMS_PROVIDER || "mock").toLowerCase();
+/* ---- Email provider (mock by default) ---- */
+async function sendEmail(email, code) {
+  const provider = (process.env.EMAIL_PROVIDER || "mock").toLowerCase();
   if (provider === "mock") {
-    console.log(`[sms:mock] OTP for ${phone} is ${code}`);
+    console.log(`[email:mock] code for ${email} is ${code}`);
     return { sent: true, devCode: code };           // dev convenience only
   }
-  // e.g. MSG91 / Twilio would POST to their API here using process.env keys.
-  throw new Error(`SMS provider "${provider}" not configured`);
+  if (provider === "resend") {
+    const key = process.env.RESEND_API_KEY;
+    if (!key) throw new Error("RESEND_API_KEY not set");
+    const from = process.env.EMAIL_FROM || "Goal Oracle <onboarding@resend.dev>";
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + key, "Content-Type": "application/json" },
+      body: JSON.stringify({ from, to: [email], subject: "Your Goal Oracle code",
+        text: `Your Goal Oracle login code is ${code}. It expires in 5 minutes.` }),
+    });
+    if (!res.ok) throw new Error("resend HTTP " + res.status);
+    return { sent: true };
+  }
+  throw new Error(`Email provider "${provider}" not configured`);
 }
 
 function genCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"); }
 function genInvite() { return crypto.randomBytes(4).toString("hex").slice(0, 6).toUpperCase(); }
-function normPhone(p) { return String(p || "").replace(/[^\d+]/g, ""); }
+export function normEmail(e) { return String(e || "").trim().toLowerCase(); }
+function isEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 
-/* ---- OTP flow ---- */
-export async function requestOtp(phone) {
-  phone = normPhone(phone);
-  if (phone.length < 7) throw new Error("invalid phone number");
+/* ---- Email OTP flow ---- */
+export async function requestOtp(email) {
+  email = normEmail(email);
+  if (!isEmail(email)) throw new Error("enter a valid email address");
   const code = genCode();
-  await setOtp(phone, { code, expires: Date.now() + OTP_TTL_MS });
-  const res = await sendSms(phone, code);
+  await setOtp(email, { code, expires: Date.now() + OTP_TTL_MS });
+  const res = await sendEmail(email, code);
   // In mock mode we return devCode so the UI can prefill it; never in prod.
-  return { ok: true, devCode: (process.env.SMS_PROVIDER || "mock") === "mock" ? res.devCode : undefined };
+  return { ok: true, devCode: (process.env.EMAIL_PROVIDER || "mock") === "mock" ? res.devCode : undefined };
 }
 
-export async function verifyOtp(phone, code) {
-  phone = normPhone(phone);
-  const rec = await getOtp(phone);
-  if (!rec) throw new Error("no code requested for this number");
-  if (Date.now() > rec.expires) { await clearOtp(phone); throw new Error("code expired — request a new one"); }
+export async function verifyOtp(email, code) {
+  email = normEmail(email);
+  const rec = await getOtp(email);
+  if (!rec) throw new Error("no code requested for this email");
+  if (Date.now() > rec.expires) { await clearOtp(email); throw new Error("code expired — request a new one"); }
   if (String(code) !== rec.code) throw new Error("incorrect code");
-  await clearOtp(phone);
+  await clearOtp(email);
 
-  // Find or create the account for this phone.
-  let user = await findUserByPhone(phone);
+  // Find or create the account for this email (shared with Google sign-in).
+  let user = await findUserByEmail(email);
   if (!user) {
     const userId = "u_" + crypto.randomBytes(6).toString("hex");
     user = await getUser(userId);
-    user.phone = phone;
+    user.email = email;
     user.inviteCode = genInvite();
-    user.name = user.name || ("Player" + phone.slice(-4));
+    user.name = user.name || email.split("@")[0];
     user.friends = user.friends || [];
     await saveUser(user);
   }
@@ -72,13 +84,19 @@ export async function loginWithGoogle(credential) {
   const profile = await verifyGoogle(credential);
   if (!profile?.sub) throw new Error("could not read Google profile");
 
+  const email = normEmail(profile.email);
   let user = await findUserByGoogle(profile.sub);
+  // Same email signed in via email-OTP before? Link Google to that account.
+  if (!user && email) {
+    user = await findUserByEmail(email);
+    if (user && !user.googleId) { user.googleId = profile.sub; await saveUser(user); }
+  }
   if (!user) {
     const userId = "u_" + crypto.randomBytes(6).toString("hex");
     user = await getUser(userId);
     user.googleId = profile.sub;
-    user.email = profile.email || null;
-    user.name = user.name || profile.name || (profile.email ? profile.email.split("@")[0] : "Player");
+    user.email = email || null;
+    user.name = user.name || profile.name || (email ? email.split("@")[0] : "Player");
     user.inviteCode = genInvite();
     user.friends = user.friends || [];
     await saveUser(user);

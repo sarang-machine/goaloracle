@@ -45,10 +45,10 @@ bottom tab bar, streaks, leaderboard, share, LIVE/DEMO modes). Re-themed:
 ## Accounts & friends
 
 - **Sign in** from the Stats tab (or "Sign In For Real Ranks" on the Ranks tab),
-  two ways:
+  two ways (unified by email — same account either way):
   - **Google** — real One Tap once you set a client ID (`localStorage.go_google_client_id`
     + `GOOGLE_CLIENT_ID` on the server); otherwise a working "Continue with Google" demo button.
-  - **Phone → OTP** — in demo mode the code is shown for you.
+  - **Email → code** — a 6-digit code emailed to you. In demo mode the code is shown on screen.
 - Once signed in, your **friend code** appears on the Ranks tab. Share your
   invite link (auto-friends new players) or add a friend by their code.
 - Picks are then tied to your **verified account**, so streaks and the friends

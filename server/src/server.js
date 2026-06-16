@@ -100,20 +100,20 @@ app.post("/api/pick", async (req, res) => {
   const existing = await getPick(ch.date, userId);
   if (existing?.locked) return res.status(409).json({ error: "you already locked a pick" });
 
-  if (name) { const u = await getUser(userId); if (!u.phone) { u.name = name; } } // don't let anon overwrite a verified name
+  if (name) { const u = await getUser(userId); if (!u.email) { u.name = name; } } // don't let anon overwrite a verified name
   const pick = await savePick(ch.date, userId, { option, locked: true, ts: new Date().toISOString(), correct: null });
   res.json({ ok: true, date: ch.date, pick });
 });
 
-/* ---- Auth (phone OTP) ---- */
+/* ---- Auth (email OTP) ---- */
 app.post("/api/auth/request-otp", async (req, res) => {
-  try { res.json(await requestOtp(req.body?.phone)); }
+  try { res.json(await requestOtp(req.body?.email)); }
   catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.post("/api/auth/verify-otp", async (req, res) => {
   try {
-    const { user, token } = await verifyOtp(req.body?.phone, req.body?.code);
+    const { user, token } = await verifyOtp(req.body?.email, req.body?.code);
     // Optional: auto-friend whoever referred them (invite code).
     if (req.body?.ref) { const f = await findUserByInvite(req.body.ref); if (f) await linkFriends(user.userId, f.userId); }
     res.json({ ok: true, token, userId: user.userId, name: user.name, inviteCode: user.inviteCode });

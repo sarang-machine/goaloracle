@@ -480,15 +480,15 @@
           <button class="btn btn-ghost" id="googleDemoBtn" style="display:none">Continue with Google</button>
         </div>
         <p class="authline" style="text-align:center;opacity:.55;margin:0 0 14px">— or —</p>
-        <p class="authline">Enter your phone — we'll text you a code so your streak &amp; rank are saved and friends can find you.</p>
-        <input class="nbinput" id="phoneInput" placeholder="+91 98XXXXXXXX" inputmode="tel" />
+        <p class="authline">Enter your email — we'll send a code so your streak &amp; rank are saved and friends can find you.</p>
+        <input class="nbinput" id="emailInput" placeholder="you@email.com" inputmode="email" autocomplete="email" />
         <button class="btn btn-primary" id="sendOtpBtn" style="margin-top:14px">Send Code</button>
       </div>
       <div id="authStep2" style="display:none">
         <p class="authline" id="otpHint">Enter the 6-digit code.</p>
         <input class="nbinput" id="otpInput" placeholder="——————" inputmode="numeric" maxlength="6" />
         <button class="btn btn-go" id="verifyOtpBtn" style="margin-top:14px">Verify &amp; Sign In</button>
-        <button class="btn btn-ghost" id="otpBackBtn" style="margin-top:10px">← Change number</button>
+        <button class="btn btn-ghost" id="otpBackBtn" style="margin-top:10px">← Change email</button>
       </div>
     </div>
   </div>
@@ -1028,21 +1028,21 @@
   function openAuth() {
     if (MODE !== "online") { toast("⚠ Sign-in needs the live server running"); return; }
     $("#authStep1").style.display = "block"; $("#authStep2").style.display = "none";
-    $("#phoneInput").value = ""; $("#otpInput").value = "";
+    $("#emailInput").value = ""; $("#otpInput").value = "";
     $("#authModal").classList.remove("hidden");
     setupGoogle();
   }
   function closeAuth() { $("#authModal").classList.add("hidden"); }
 
   async function sendOtp() {
-    const phone = $("#phoneInput").value.trim();
-    if (phone.replace(/\D/g,"").length < 7) { toast("Enter a valid phone number"); return; }
+    const email = $("#emailInput").value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast("Enter a valid email"); return; }
     $("#sendOtpBtn").disabled = true;
     try {
-      const r = await api("/api/auth/request-otp", { method:"POST", body: JSON.stringify({ phone }) });
+      const r = await api("/api/auth/request-otp", { method:"POST", body: JSON.stringify({ email }) });
       $("#authStep1").style.display = "none"; $("#authStep2").style.display = "block";
       $("#otpHint").innerHTML = r.devCode
-        ? `Demo mode — your code is <b>${r.devCode}</b>` : "Enter the 6-digit code we texted you.";
+        ? `Demo mode — your code is <b>${r.devCode}</b>` : "Enter the 6-digit code we emailed you.";
       if (r.devCode) $("#otpInput").value = r.devCode;
       $("#otpInput").focus();
     } catch (e) { toast("⚠ " + (e.body?.error || "Couldn't send code")); }
@@ -1050,17 +1050,17 @@
   }
 
   async function verifyOtp() {
-    const phone = $("#phoneInput").value.trim();
+    const email = $("#emailInput").value.trim();
     const code = $("#otpInput").value.trim();
     $("#verifyOtpBtn").disabled = true;
     try {
-      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ phone, code, ref: refParam() }) });
+      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ email, code, ref: refParam() }) });
       await finishLogin(r);
     } catch (e) { toast("⚠ " + (e.body?.error || "Verification failed")); }
     finally { $("#verifyOtpBtn").disabled = false; }
   }
 
-  /* Store the session and refresh into the signed-in state (shared by phone + Google). */
+  /* Store the session and refresh into the signed-in state (shared by email + Google). */
   async function finishLogin(r) {
     localStorage.setItem("go_token", r.token);
     localStorage.setItem("go_uid", r.userId);
