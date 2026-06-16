@@ -38,23 +38,32 @@ const CRICKET_BANK = [
     options:["South Africa","England"], points:100 },
 ];
 
-/* World Cup 2026 bank — used when SPORT=football (e.g. the Goal Oracle app). */
+/* World Cup 2026 bank — used when SPORT=football (e.g. the Goal Oracle app).
+   Winner-only: every challenge is "which team will win?" (knockout ties, so
+   there's always a clear winner — no draws to resolve). To edit the daily
+   matches, change the entries below; keep type:"winner" and two options. */
 const FOOTBALL_BANK = [
-  { league:"GROUP A", venue:"Estadio Azteca, Mexico City",
-    home:{ name:"Mexico", short:"MEX", color:"#006847" }, away:{ name:"Croatia", short:"CRO", color:"#d10a11" },
-    type:"winner", question:"World Cup opener — who wins?", options:["Mexico","Draw","Croatia"], points:100 },
-  { league:"GROUP D", venue:"MetLife Stadium, New Jersey",
-    home:{ name:"Argentina", short:"ARG", color:"#6cace4" }, away:{ name:"Nigeria", short:"NGA", color:"#008751" },
-    type:"top_scorer", question:"Who scores the most goals?", options:["Lionel Messi","Lautaro Martínez","Julián Álvarez","Victor Osimhen"], points:150 },
-  { league:"GROUP C", venue:"SoFi Stadium, Los Angeles",
-    home:{ name:"France", short:"FRA", color:"#1f3a93" }, away:{ name:"Australia", short:"AUS", color:"#f6c700" },
-    type:"total_goals", question:"How many goals in the match?", options:["Under 1.5","2 - 3","4 - 5","Over 5"], points:200 },
-  { league:"GROUP F", venue:"Mercedes-Benz Stadium, Atlanta",
-    home:{ name:"England", short:"ENG", color:"#243b7a" }, away:{ name:"Netherlands", short:"NED", color:"#f36c21" },
-    type:"btts", question:"Both teams to score?", options:["Yes — both score","No"], points:120 },
+  { league:"ROUND OF 32", venue:"AT&T Stadium, Dallas",
+    home:{ name:"Brazil", short:"BRA", color:"#009b3a" }, away:{ name:"Morocco", short:"MAR", color:"#c1272d" },
+    type:"winner", question:"Which team will win?", options:["Brazil","Morocco"], points:100 },
+  { league:"ROUND OF 32", venue:"Lumen Field, Seattle",
+    home:{ name:"Spain", short:"ESP", color:"#c60b1e" }, away:{ name:"Uruguay", short:"URU", color:"#5aa0d8" },
+    type:"winner", question:"Which team will win?", options:["Spain","Uruguay"], points:100 },
   { league:"ROUND OF 16", venue:"MetLife Stadium, New Jersey",
     home:{ name:"France", short:"FRA", color:"#1f3a93" }, away:{ name:"England", short:"ENG", color:"#243b7a" },
-    type:"winner", question:"Who reaches the quarters?", options:["France","England"], points:100 },
+    type:"winner", question:"Which team will win?", options:["France","England"], points:100 },
+  { league:"ROUND OF 16", venue:"SoFi Stadium, Los Angeles",
+    home:{ name:"Argentina", short:"ARG", color:"#6cace4" }, away:{ name:"Netherlands", short:"NED", color:"#f36c21" },
+    type:"winner", question:"Which team will win?", options:["Argentina","Netherlands"], points:100 },
+  { league:"ROUND OF 16", venue:"Mercedes-Benz Stadium, Atlanta",
+    home:{ name:"Portugal", short:"POR", color:"#d52b1e" }, away:{ name:"Germany", short:"GER", color:"#111111" },
+    type:"winner", question:"Which team will win?", options:["Portugal","Germany"], points:100 },
+  { league:"QUARTER-FINAL", venue:"AT&T Stadium, Dallas",
+    home:{ name:"Argentina", short:"ARG", color:"#6cace4" }, away:{ name:"Spain", short:"ESP", color:"#c60b1e" },
+    type:"winner", question:"Which team will win?", options:["Argentina","Spain"], points:100 },
+  { league:"SEMI-FINAL", venue:"SoFi Stadium, Los Angeles",
+    home:{ name:"Brazil", short:"BRA", color:"#009b3a" }, away:{ name:"France", short:"FRA", color:"#1f3a93" },
+    type:"winner", question:"Which team will win?", options:["Brazil","France"], points:100 },
   { league:"FINAL", venue:"MetLife Stadium, New Jersey",
     home:{ name:"Argentina", short:"ARG", color:"#6cace4" }, away:{ name:"France", short:"FRA", color:"#1f3a93" },
     type:"winner", question:"Who lifts the World Cup?", options:["Argentina","France"], points:100 },
