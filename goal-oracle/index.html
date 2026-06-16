@@ -317,6 +317,9 @@
 
   .hidden { display: none !important; }
   .pulse { animation: pulse .45s ease; }
+  .loading-ball { width: 100%; text-align: center; font-size: 46px; padding: 18px 0;
+    animation: bob 1s ease-in-out infinite; }
+  @keyframes bob { 0%,100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-8px); opacity: 1; } }
   @keyframes pulse { 0%,100%{transform:none;} 40%{transform:scale(1.18) rotate(-3deg);} }
 
   .foot { text-align: center; font-size: 11px; font-weight: 700; opacity: .7; padding: 4px 0 8px; }
@@ -681,8 +684,26 @@
     };
   }
 
+  function pendingView() {
+    const me = srv.me;
+    return {
+      pending: true, challenge: null, options: [],
+      lockTime: null, myPick: null, locked: false, resolved: false, correct: null,
+      answer: null, canReveal: false, lockedOut: false,
+      stats: me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) }
+                : { streak:0, best:0, wins:0, played:0, score:0, history:[] },
+    };
+  }
+
   async function refreshServer() {
     srv.ch = await api("/api/today");
+    // No real fixture available yet → loading state (no invented match).
+    if (!srv.ch || srv.ch.pending) {
+      srv.pick = null;
+      srv.me = await api(`/api/me/${uid()}`).catch(() => null);
+      view = pendingView();
+      return;
+    }
     const d = srv.ch.date;
     const [pick, me] = await Promise.all([
       api(`/api/pick/${d}/${uid()}`).catch(() => ({ option:null, locked:false, correct:null })),
@@ -708,6 +729,18 @@
   }
 
   function renderChallenge() {
+    if (view.pending) {
+      $("#leagueTag").textContent = "WORLD CUP 2026";
+      $("#countdown").textContent = "—";
+      $("#venue").textContent = "";
+      $("#matchup").innerHTML = `<div class="loading-ball" aria-hidden="true">⚽</div>`;
+      $("#question").textContent = "Loading next match…";
+      $("#options").innerHTML = "";
+      $("#lockBtn").classList.add("hidden");
+      $("#resultCard").classList.add("hidden");
+      $("#microNote").textContent = "The next World Cup fixture will appear here. Check back soon!";
+      return;
+    }
     const ch = view.challenge;
     $("#leagueTag").textContent = ch.league;
     $("#venue").textContent = "📍 " + ch.venue;
@@ -911,10 +944,12 @@
 
   /* ---------- Share ---------- */
   function buildShareText() {
-    const ch = view.challenge;
     const hist = view.stats.history.slice(-7).map((h) => h.correct?"🟩":"🟥").join("");
-    let line = view.resolved ? (view.correct?"✅ Called it!":"❌ Missed it.") : (view.myPick ? "🔒 Locked in." : "👀 Predicting…");
-    return `⚽ GOAL ORACLE — World Cup 2026 — ${todayKey()}\n${ch.home.short} v ${ch.away.short}: ${line}\n🔥 Streak ${view.stats.streak} · Best ${view.stats.best}\n${hist || "▫️▫️▫️"}\n\nPlay daily 👉 goaloracle.app`;
+    const matchLine = view.challenge
+      ? `${view.challenge.home.short} v ${view.challenge.away.short}: ` +
+        (view.resolved ? (view.correct?"✅ Called it!":"❌ Missed it.") : (view.myPick ? "🔒 Locked in." : "👀 Predicting…"))
+      : "Next match loading…";
+    return `⚽ GOAL ORACLE — World Cup 2026 — ${todayKey()}\n${matchLine}\n🔥 Streak ${view.stats.streak} · Best ${view.stats.best}\n${hist || "▫️▫️▫️"}\n\nPlay daily 👉 goaloracle.app`;
   }
   async function shareResult() {
     const text = buildShareText();
@@ -927,6 +962,7 @@
   function tickCountdown() {
     const el = $("#countdown");
     if (!view) return;
+    if (view.pending) { el.textContent = "—"; return; }
     if (view.resolved) { el.textContent = "✓ RESOLVED"; return; }
     if (MODE === "online") {
       if (!view.lockTime) { el.textContent = ""; return; }
@@ -1098,7 +1134,8 @@
     $("#googleDemoBtn").addEventListener("click", googleDemoLogin);
   }
 
-  /* Upgrade to LIVE in the background — never blocks first paint. */
+  /* Resolve the real state: LIVE if the backend answers, else the offline demo.
+     Starts from a loading view so we never flash an invented match. */
   async function tryOnline() {
     try {
       await api("/api/health", {}, 2500);
@@ -1108,12 +1145,16 @@
       if (isAuthed()) await fetchFriendsBoard();
       renderAll();
       if (view.myPick && !view.resolved) startPolling();
-    } catch { /* no backend reachable — stay in DEMO mode */ }
+    } catch {
+      MODE = "offline";
+      view = viewFromLocal();   // standalone (no backend) → local demo bank
+      renderAll();
+    }
   }
 
   function init() {
-    // Paint the game instantly in DEMO mode; don't wait on the network.
-    view = viewFromLocal();
+    // Paint a loading state first (no invented match), then resolve live/offline.
+    view = pendingView();
     renderAll();
     bindEvents();
     if (!localStorage.getItem("go_seen")) { openModal(); localStorage.setItem("go_seen","1"); }

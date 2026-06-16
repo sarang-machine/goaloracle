@@ -50,15 +50,22 @@ const requireAdmin = (req, res, next) =>
 async function ensureToday() {
   const key = dateKey();
   let ch = await getChallenge(key);
-  if (!ch) {
-    let built = null;
+  if (ch) return syncStatus(ch);
+
+  const sport = (process.env.SPORT || "football").toLowerCase();
+  let built = null;
+  if (sport === "football") {
     if ((process.env.PROVIDER || "").toLowerCase() === "footballdata") {
       try { built = await buildChallengeFromFixtures(); }
       catch (e) { console.warn("[publisher]", e.message); }
     }
-    ch = await saveChallenge(built || buildChallenge());
+    // No real fixture yet (no key, or no upcoming match) → don't invent one.
+    // Returning null makes /api/today report "pending" so the UI shows loading.
+    if (!built) return null;
+  } else {
+    built = buildChallenge();   // cricket uses its static bank
   }
-  return syncStatus(ch);
+  return syncStatus(await saveChallenge(built));
 }
 
 /* Strip fields the client shouldn't see before the match resolves. */
@@ -71,6 +78,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, provider: process.env
 
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();
+  if (!ch) return res.json({ pending: true });   // no real fixture yet → UI shows loading
   res.json(publicChallenge(ch));
 });
 
@@ -81,6 +89,7 @@ app.post("/api/pick", async (req, res) => {
   if (!userId || !option) return res.status(400).json({ error: "userId/token and option required" });
 
   const ch = await ensureToday();
+  if (!ch) return res.status(409).json({ error: "no match available right now" });
   if (!ch.options.includes(option)) return res.status(400).json({ error: "invalid option" });
 
   // Server-authoritative lock: no picks (or changes) once the match starts.
