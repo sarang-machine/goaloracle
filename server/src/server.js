@@ -23,7 +23,7 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { dateKey, buildChallenge } from "./challenges.js";
-import { getChallenge, saveChallenge, getPick, savePick, getUser, allUsers, findUserByInvite, linkFriends } from "./store.js";
+import { getChallenge, saveChallenge, getPick, savePick, getUser, allUsers, findUserByInvite, linkFriends, tallyPicks } from "./store.js";
 import { resolveDay, resolveDue, syncStatus } from "./resolver.js";
 import { requestOtp, verifyOtp, loginWithGoogle, authUserId } from "./auth.js";
 import { buildChallengeFromFixtures } from "./publisher.js";
@@ -79,7 +79,7 @@ app.get("/api/health", (_req, res) => res.json({ ok: true, provider: process.env
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();
   if (!ch) return res.json({ pending: true });   // no real fixture yet → UI shows loading
-  res.json(publicChallenge(ch));
+  res.json({ ...publicChallenge(ch), votes: await tallyPicks(ch.date) });
 });
 
 app.post("/api/pick", async (req, res) => {

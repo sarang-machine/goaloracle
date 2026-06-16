@@ -59,6 +59,13 @@ export async function savePick(date, userId, pick) {
   return pick;
 }
 export async function picksForDate(date) { return Object.entries((await read()).picks[date] || {}); }
+/* Vote distribution for a date: { total, counts: { option: n } }. */
+export async function tallyPicks(date) {
+  const entries = (await read()).picks[date] || {};
+  const counts = {}; let total = 0;
+  for (const id in entries) { const o = entries[id].option; if (!o) continue; counts[o] = (counts[o] || 0) + 1; total++; }
+  return { total, counts };
+}
 
 /* ---- Users (streaks, score, history, identity, friends) ---- */
 export async function getUser(userId) {

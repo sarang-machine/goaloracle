@@ -161,14 +161,22 @@
     font-size: 15px; font-weight: 700; text-align: left; text-transform: uppercase;
     background: var(--paper); color: var(--ink);
     border: var(--bd-thick); box-shadow: var(--sh-sm);
-    padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    padding: 14px 16px; display: flex; align-items: center; gap: 10px;
+    position: relative; overflow: hidden;
     transition: transform .05s ease, box-shadow .05s ease;
   }
   .opt:active { transform: translate(3px,3px); box-shadow: none; }
-  .opt .tick { font-family: var(--press); font-size: 14px; }
+  .opt .barfill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; z-index: 0;
+    background: rgba(0,0,0,.10); transition: width .5s ease; }
+  .opt .lbl { flex: 1; position: relative; z-index: 1; }
+  .opt .pct { position: relative; z-index: 1; font-family: var(--press); font-size: 11px; opacity: .85; }
+  .opt .tick { position: relative; z-index: 1; font-family: var(--press); font-size: 14px; }
   .opt.selected { background: var(--yellow); }
+  .opt.selected .barfill { background: rgba(0,0,0,.18); }
   .opt.correct { background: var(--green); color: #07210f; }
+  .opt.correct .barfill { background: rgba(0,0,0,.16); }
   .opt.wrong   { background: var(--red); color: #fff; }
+  .opt.wrong .barfill { background: rgba(255,255,255,.20); }
   .opt.locked  { cursor: default; }
   .opt.locked:active { transform: none; box-shadow: var(--sh-sm); }
 
@@ -649,6 +657,14 @@
   /* =========================================================================
      Build the unified VIEW from each source
      ========================================================================= */
+  // Deterministic fake vote split for the offline demo (so the bars aren't empty).
+  function synthVotes(options, seed) {
+    let s = (seed || 1) % 2147483647; const rnd = () => (s = (s * 48271) % 2147483647) / 2147483647;
+    const counts = {}; let total = 0;
+    options.forEach((o) => { const n = 5 + Math.floor(rnd() * 40); counts[o] = n; total += n; });
+    return { total, counts };
+  }
+
   function viewFromLocal() {
     const t = localState.today;
     return {
@@ -661,6 +677,7 @@
       answer: (t && t.revealed) ? offlineChallenge.answer : null,
       canReveal: !!(t && t.locked && !t.revealed),
       lockedOut: false,
+      votes: synthVotes(offlineChallenge.options, dayNumber()),
       stats: { streak:localState.streak, best:localState.best, wins:localState.wins, played:localState.played, score:localState.baseScore, history:localState.history.slice(-10) },
     };
   }
@@ -679,6 +696,7 @@
       answer: resolved ? ch.answer : null,
       canReveal: false,                                  // ← no demo reveal in live mode
       lockedOut: ch.status !== "open" && !(pick && pick.option),
+      votes: ch.votes || { total: 0, counts: {} },
       stats: me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) }
                 : { streak:0, best:0, wins:0, played:0, score:0, history:[] },
     };
@@ -749,7 +767,7 @@
     $("#matchup").innerHTML = crest(ch.home) + `<div class="vs">VS</div>` + crest(ch.away);
 
     $("#options").innerHTML = view.options.map((o,i) =>
-      `<button class="opt" data-opt="${i}"><span>${o}</span><span class="tick"></span></button>`).join("");
+      `<button class="opt" data-opt="${i}"><span class="barfill"></span><span class="lbl">${o}</span><span class="pct"></span><span class="tick"></span></button>`).join("");
     $("#options").querySelectorAll(".opt").forEach((btn) =>
       btn.addEventListener("click", () => { if (view.locked) return; onSelect(view.options[btn.dataset.opt]); }));
 
@@ -759,15 +777,29 @@
   function onSelect(value) {
     pendingPick = value;
     document.querySelectorAll("#options .opt").forEach((b) =>
-      b.classList.toggle("selected", b.querySelector("span").textContent === value));
+      b.classList.toggle("selected", b.querySelector(".lbl").textContent === value));
     $("#lockBtn").disabled = false;
   }
 
   function markOptions() {
     document.querySelectorAll("#options .opt").forEach((b) => {
-      const label = b.querySelector("span").textContent;
+      const label = b.querySelector(".lbl").textContent;
       if (view.answer && label === view.answer) { b.classList.add("correct"); b.querySelector(".tick").textContent = "✓"; }
       if (view.myPick && label === view.myPick && view.answer && label !== view.answer) { b.classList.add("wrong"); b.querySelector(".tick").textContent = "✕"; }
+    });
+  }
+
+  /* Show the community vote split on each option (after the user has locked). */
+  function renderVotes() {
+    const v = view.votes;
+    document.querySelectorAll("#options .opt").forEach((b) => {
+      const bar = b.querySelector(".barfill"), pctEl = b.querySelector(".pct");
+      if (!bar || !pctEl) return;
+      if (!v || !v.total) { bar.style.width = "0"; pctEl.textContent = ""; return; }
+      const label = b.querySelector(".lbl").textContent;
+      const pct = Math.round(((v.counts[label] || 0) / v.total) * 100);
+      bar.style.width = pct + "%";
+      pctEl.textContent = pct + "%";
     });
   }
 
@@ -775,17 +807,19 @@
     if (view.locked) {
       document.querySelectorAll("#options .opt").forEach((b) => {
         b.classList.add("locked");
-        b.classList.toggle("selected", b.querySelector("span").textContent === view.myPick);
+        b.classList.toggle("selected", b.querySelector(".lbl").textContent === view.myPick);
       });
       $("#lockBtn").classList.add("hidden");
       if (view.myPick) {
         $("#resultCard").classList.remove("hidden");
-        $("#microNote").textContent = "You're locked in for today.";
+        $("#microNote").textContent = "You're locked in. Here's how everyone's voting 👇";
         if (view.resolved) markOptions();
+        renderVotes();
         renderResult();
       } else {
         $("#resultCard").classList.add("hidden");
         $("#microNote").textContent = "Picks are locked — come back tomorrow.";
+        renderVotes();
       }
     } else {
       $("#lockBtn").classList.remove("hidden");
