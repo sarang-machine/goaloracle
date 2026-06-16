@@ -97,7 +97,78 @@ function topScorerName(data) {
   return batters[0]?.batsman?.name || batters[0]?.batsman || null;
 }
 
-const PROVIDERS = { mock, cricapi };
+/* ---- Real: football-data.org (free tier covers the FIFA World Cup) ----
+   Set FOOTBALLDATA_KEY and publish challenges with apiMatchId = the
+   football-data.org match id. Resolves winner / draw / total goals / both-
+   teams-to-score from the final score. Returns null until the match is
+   FINISHED, so the scheduler just retries. */
+const footballdata = {
+  name: "footballdata",
+  async getResult(ch) {
+    const key = process.env.FOOTBALLDATA_KEY;
+    if (!key) throw new Error("FOOTBALLDATA_KEY is not set");
+    if (!ch.apiMatchId) { console.warn(`[footballdata] no apiMatchId for ${ch.date}; cannot resolve`); return null; }
+
+    const res = await fetch(`https://api.football-data.org/v4/matches/${ch.apiMatchId}`, {
+      headers: { "X-Auth-Token": key },
+    });
+    if (res.status === 429) throw new Error("footballdata rate limit (429) — will retry");
+    if (!res.ok) throw new Error(`footballdata HTTP ${res.status}`);
+    const m = await res.json();
+
+    if (m.status !== "FINISHED") return null;       // not over yet → retry later
+
+    const answer = deriveFootballAnswer(ch, m);
+    if (!answer) { console.warn(`[footballdata] could not map result to options for ${ch.date}`); return null; }
+    return { answer, source: "footballdata", detail: m.status };
+  },
+};
+
+function deriveFootballAnswer(ch, m) {
+  const ft = m.score?.fullTime || {};
+  const home = ft.home, away = ft.away;
+  const pick = (re) => ch.options.find((o) => re.test(o));
+  const byTeam = (name) => ch.options.find((o) => o.toLowerCase().includes(String(name||"").toLowerCase())) || name;
+
+  if (ch.type === "winner") {
+    const w = m.score?.winner;                       // HOME_TEAM | AWAY_TEAM | DRAW
+    if (w === "DRAW") return pick(/draw/i) || "Draw";
+    if (w === "HOME_TEAM") return byTeam(m.homeTeam?.name) || ch.options[0];
+    if (w === "AWAY_TEAM") return byTeam(m.awayTeam?.name) || ch.options[ch.options.length - 1];
+    return null;
+  }
+  if (ch.type === "total_goals") {
+    if (typeof home !== "number" || typeof away !== "number") return null;
+    return ch.options.find((o) => inGoalBracket(home + away, o)) || null;
+  }
+  if (ch.type === "btts") {
+    if (typeof home !== "number" || typeof away !== "number") return null;
+    const both = home > 0 && away > 0;
+    return both ? (pick(/^yes/i) || pick(/yes/i)) : (pick(/^no/i) || pick(/no/i));
+  }
+  if (ch.type === "top_scorer") {
+    const goals = m.goals || [];                     // may be absent on the free tier
+    if (!goals.length) return null;
+    const tally = {};
+    for (const g of goals) { const n = g.scorer?.name; if (n) tally[n] = (tally[n] || 0) + 1; }
+    const top = Object.entries(tally).sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (!top) return null;
+    const last = top.toLowerCase().split(" ").pop();
+    return ch.options.find((o) => o.toLowerCase().includes(last)) || null;
+  }
+  return null;
+}
+
+/* Float-aware bracket match, e.g. "Under 1.5", "2 - 3", "Over 5". */
+function inGoalBracket(total, label) {
+  const l = label.toLowerCase();
+  const nums = (l.match(/\d+(\.\d+)?/g) || []).map(Number);
+  if (l.startsWith("under")) return total < nums[0];
+  if (l.startsWith("over")) return total > nums[0];
+  return nums.length === 2 ? total >= nums[0] && total <= nums[1] : false;
+}
+
+const PROVIDERS = { mock, cricapi, footballdata };
 
 export function getProvider() {
   const name = (process.env.PROVIDER || "mock").toLowerCase();

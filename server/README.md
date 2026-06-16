@@ -72,10 +72,23 @@ the fixture                                      updates streaks + leaderboard
      -d '{"apiMatchId":"<cricapi-match-id>","lockTime":"<toss ISO>","resultTime":"<approx end ISO>"}'
    ```
 
-The `cricapi` adapter in `src/providers.js` fetches `match_info`, waits for
-`matchEnded`, and maps the scorecard to your question type (winner / total /
-top scorer). Swapping in Sportmonks/RapidAPI is just another object with the
-same `getResult()` shape.
+Two real adapters ship in `src/providers.js` (swapping in another is just one
+more object with the same `getResult()` shape):
+
+- **`footballdata`** — [football-data.org](https://football-data.org) (free tier
+  covers the FIFA World Cup). Resolves winner / draw / total goals /
+  both-teams-to-score from the final score, and returns `null` until the match is
+  `FINISHED` so the scheduler retries. Set `PROVIDER=footballdata` +
+  `FOOTBALLDATA_KEY`, and publish each challenge with `apiMatchId` = the
+  football-data match id.
+- **`cricapi`** — CricketData.org for the cricket app.
+
+Example — publish a World Cup match wired to real data:
+```bash
+curl -X POST $URL/api/admin/publish -H "X-Admin-Token: $ADMIN_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"apiMatchId":"<football-data-match-id>","lockTime":"<kickoff ISO>","resultTime":"<approx end ISO>"}'
+```
 
 ## Deploy the scheduler (pick one)
 
