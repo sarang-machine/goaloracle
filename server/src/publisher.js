@@ -57,14 +57,18 @@ export function fixtureToChallenge(m, day) {
   };
 }
 
-/* Fetch the day's real World Cup fixture and return a challenge (or null). */
+/* Fetch the NEXT real World Cup fixture (today or upcoming) and return a
+   challenge keyed to `date` (or null). Looking ahead a window means rest days
+   show the next match instead of a placeholder. */
 export async function buildChallengeFromFixtures(date = new Date()) {
   const key = process.env.FOOTBALLDATA_KEY;
   if (!key) return null;
   const comp = process.env.WC_COMPETITION || "WC";   // FIFA World Cup code on football-data
   const day = dateKey(date);
+  const horizon = Number(process.env.FIXTURE_LOOKAHEAD_DAYS || 12);
+  const end = dateKey(new Date(date.getTime() + horizon * 86400000));
 
-  const url = `https://api.football-data.org/v4/competitions/${comp}/matches?dateFrom=${day}&dateTo=${day}`;
+  const url = `https://api.football-data.org/v4/competitions/${comp}/matches?dateFrom=${day}&dateTo=${end}`;
   let res;
   try { res = await fetch(url, { headers: { "X-Auth-Token": key } }); }
   catch (e) { console.warn("[publisher] fetch failed:", e.message); return null; }
@@ -72,12 +76,13 @@ export async function buildChallengeFromFixtures(date = new Date()) {
 
   const body = await res.json();
   const matches = body.matches || [];
-  if (!matches.length) { console.warn(`[publisher] no World Cup match on ${day}`); return null; }
-
-  // Prefer the earliest match that hasn't finished; else the earliest.
+  // Earliest match that hasn't finished — i.e. the next one to predict.
   matches.sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate));
-  const m = matches.find((x) => x.status !== "FINISHED") || matches[0];
+  const m = matches.find((x) => x.status !== "FINISHED");
+  if (!m) { console.warn(`[publisher] no upcoming World Cup match within ${horizon}d of ${day}`); return null; }
+
   const ch = fixtureToChallenge(m, day);
-  console.log(`[publisher] published real fixture ${ch.home.short} v ${ch.away.short} (id ${ch.apiMatchId})`);
+  const when = m.utcDate.slice(0, 10);
+  console.log(`[publisher] ${day}: next fixture ${ch.home.short} v ${ch.away.short} on ${when} (id ${ch.apiMatchId})`);
   return ch;
 }

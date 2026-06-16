@@ -1,0 +1,20 @@
+# Keep the free Render service awake so players don't hit a cold start.
+# Pings the health endpoint every ~10 minutes. Free, runs on GitHub.
+# Edit PING_URL if your deploy URL changes.
+name: keep-warm
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        env:
+          PING_URL: https://goal-oracle.onrender.com/api/health
+        run: |
+          echo "Pinging $PING_URL"
+          curl -fsS --max-time 30 "$PING_URL" || echo "ping failed (will retry next run)"
