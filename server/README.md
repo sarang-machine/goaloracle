@@ -188,7 +188,7 @@ vercel.json        example Vercel Cron config
 
 - [ ] Real provider key (`PROVIDER=cricapi`, `CRICAPI_KEY`)
 - [ ] Strong `ADMIN_TOKEN`
-- [ ] Swap `store.js` for a hosted DB (Postgres/Supabase) — the file store is single-instance only
+- [x] Durable storage — set `DATABASE_URL` (Postgres) and the store persists there; render.yaml provisions a free DB. (No `DATABASE_URL` → local JSON file.)
 - [ ] Real auth so `userId` can't be spoofed
 - [ ] Publish fixtures from a real schedule (cron that reads upcoming matches)
 - [ ] Rate-limit `/api/pick`

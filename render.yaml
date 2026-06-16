@@ -23,12 +23,18 @@ services:
         generateValue: true  # Render generates a strong secret
       - key: AUTH_SECRET
         generateValue: true
-      # - key: CRICAPI_KEY      # add for live football/cricket data
+      - key: DATABASE_URL          # durable storage — survives redeploys
+        fromDatabase:
+          name: goal-oracle-db
+          property: connectionString
+      # - key: FOOTBALLDATA_KEY  # add for real World Cup results
       #   sync: false
-      # - key: GOOGLE_CLIENT_ID # add for real Google One Tap
+      # - key: GOOGLE_CLIENT_ID  # add for real Google One Tap
       #   sync: false
 
-# NOTE: Render's free tier has an EPHEMERAL filesystem — the JSON data store
-# resets on each deploy/restart. For durable streaks & accounts, either add a
-# paid Disk (mount at /data and set DATA_DIR=/data) or move the store to a
-# managed Postgres (see server/src/store.js — it's behind a small interface).
+databases:
+  - name: goal-oracle-db
+    plan: free                     # free managed Postgres
+
+# Storage: with DATABASE_URL set (wired above), streaks/accounts/picks persist
+# in Postgres across deploys. Without it the app uses an ephemeral JSON file.

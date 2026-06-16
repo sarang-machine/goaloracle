@@ -1,8 +1,14 @@
 /* =========================================================================
-   store.js — tiny JSON-file persistence.
-   Deliberately behind a small async interface so it can be swapped for
-   Postgres / Supabase / Firebase without touching the rest of the app:
-   just reimplement these exported functions against your DB.
+   store.js — persistence behind a small async interface.
+
+   Two backends, chosen at runtime:
+     • Postgres  — when DATABASE_URL is set (durable; survives redeploys).
+     • JSON file — otherwise (zero-setup local default).
+
+   Both keep the whole dataset as one document in memory (`cache`) and persist
+   it on write, so every exported function below is backend-agnostic. At real
+   scale you'd split this into proper tables; the single-document model is plenty
+   for an MVP and keeps the interface identical.
    ========================================================================= */
 
 import { readFile, writeFile, mkdir, rename } from "node:fs/promises";
@@ -16,8 +22,21 @@ const DATA_DIR = process.env.DATA_DIR || join(__dirname, "..", "data");
 const DB_FILE = join(DATA_DIR, "db.json");
 
 const EMPTY = { challenges: {}, picks: {}, users: {}, otps: {} };
+const USE_PG = !!process.env.DATABASE_URL;
 
 let cache = null;
+let pool = null;
+
+/* Lazy Postgres pool + one-time table create (only loaded when USE_PG). */
+async function pg() {
+  if (pool) return pool;
+  const { default: pkg } = await import("pg");
+  const ssl = (process.env.PGSSL === "true" || /sslmode=require/.test(process.env.DATABASE_URL || ""))
+    ? { rejectUnauthorized: false } : undefined;
+  pool = new pkg.Pool({ connectionString: process.env.DATABASE_URL, ssl });
+  await pool.query("CREATE TABLE IF NOT EXISTS kv (k text PRIMARY KEY, v jsonb NOT NULL)");
+  return pool;
+}
 
 async function ensureFile() {
   if (!existsSync(DATA_DIR)) await mkdir(DATA_DIR, { recursive: true });
@@ -26,19 +45,31 @@ async function ensureFile() {
 
 async function read() {
   if (cache) return cache;
-  await ensureFile();
-  try {
-    cache = JSON.parse(await readFile(DB_FILE, "utf8"));
-    for (const k of Object.keys(EMPTY)) cache[k] ??= {};
-  } catch {
-    cache = structuredClone(EMPTY);
+  if (USE_PG) {
+    try {
+      const r = await (await pg()).query("SELECT v FROM kv WHERE k = 'db'");
+      cache = r.rows[0]?.v || structuredClone(EMPTY);
+    } catch (e) { console.error("[store] pg read failed:", e.message); cache = structuredClone(EMPTY); }
+  } else {
+    await ensureFile();
+    try { cache = JSON.parse(await readFile(DB_FILE, "utf8")); }
+    catch { cache = structuredClone(EMPTY); }
   }
+  for (const k of Object.keys(EMPTY)) cache[k] ??= {};
   return cache;
 }
 
-/* Atomic-ish write: write to a temp file then rename over the real one. */
 async function flush() {
   if (!cache) return;
+  if (USE_PG) {
+    try {
+      await (await pg()).query(
+        "INSERT INTO kv (k, v) VALUES ('db', $1::jsonb) ON CONFLICT (k) DO UPDATE SET v = $1::jsonb",
+        [JSON.stringify(cache)]);
+    } catch (e) { console.error("[store] pg flush failed:", e.message); }
+    return;
+  }
+  // file: atomic-ish write (temp then rename)
   await ensureFile();
   const tmp = DB_FILE + ".tmp";
   await writeFile(tmp, JSON.stringify(cache, null, 2));

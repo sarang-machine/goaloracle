@@ -29,9 +29,10 @@ URL). So you deploy a single Node web service and you're live.
 3. Click **Apply**. In ~2 min you get a URL like `https://goal-oracle.onrender.com`.
 4. Open it — the game loads in **🟢 LIVE** mode (mock data/SMS until you add keys).
 
-Free tier notes: the service sleeps after inactivity (first hit is slow), and the
-filesystem is **ephemeral** (data resets on redeploy). For durable data add a
-Disk (mount `/data`, set `DATA_DIR=/data`) or a Postgres (see below).
+Free tier notes: the service sleeps after inactivity (first hit is slow). Data is
+**durable** — `render.yaml` provisions a free Postgres and wires `DATABASE_URL`,
+so streaks/accounts/picks survive redeploys. (Without `DATABASE_URL` the app uses
+an ephemeral JSON file.)
 
 ## Option B — Railway / Fly.io / any container host (uses the Dockerfile)
 
@@ -75,7 +76,7 @@ origins*, and in the browser run
 - [ ] Strong `ADMIN_TOKEN` + `AUTH_SECRET`
 - [ ] Real data provider (`PROVIDER=cricapi`, `CRICAPI_KEY`) + publish fixtures with real match ids
 - [ ] Real SMS gateway (`SMS_PROVIDER`) and/or `GOOGLE_CLIENT_ID`
-- [ ] Durable storage (persistent disk or Postgres) — the JSON store is single-instance/ephemeral
+- [x] Durable storage — `DATABASE_URL` (Postgres) is wired via render.yaml; survives redeploys
 - [ ] A custom domain (optional)
 
 ---
