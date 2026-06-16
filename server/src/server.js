@@ -27,6 +27,7 @@ import { getChallenge, saveChallenge, getPick, savePick, getUser, allUsers, find
 import { resolveDay, resolveDue, syncStatus } from "./resolver.js";
 import { requestOtp, verifyOtp, loginWithGoogle, authUserId } from "./auth.js";
 import { buildChallengeFromFixtures } from "./publisher.js";
+import { activeProviderName } from "./providers.js";
 
 const app = express();
 app.use(express.json());
@@ -55,7 +56,7 @@ async function ensureToday() {
   const sport = (process.env.SPORT || "football").toLowerCase();
   let built = null;
   if (sport === "football") {
-    if ((process.env.PROVIDER || "").toLowerCase() === "footballdata") {
+    if (activeProviderName() === "footballdata") {
       try { built = await buildChallengeFromFixtures(); }
       catch (e) { console.warn("[publisher]", e.message); }
     }
@@ -74,7 +75,7 @@ function publicChallenge(ch) {
   return { ...ch, answer: status === "resolved" ? answer : null };
 }
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, provider: process.env.PROVIDER || "mock" }));
+app.get("/api/health", (_req, res) => res.json({ ok: true, provider: activeProviderName() }));
 
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();

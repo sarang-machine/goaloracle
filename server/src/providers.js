@@ -170,8 +170,18 @@ function inGoalBracket(total, label) {
 
 const PROVIDERS = { mock, cricapi, footballdata };
 
+/* The effective provider. If PROVIDER isn't set explicitly, infer it from the
+   presence of an API key — so setting FOOTBALLDATA_KEY alone is enough to go
+   live (no separate PROVIDER var to get out of sync). */
+export function activeProviderName() {
+  if (process.env.PROVIDER) return process.env.PROVIDER.toLowerCase();
+  if (process.env.FOOTBALLDATA_KEY) return "footballdata";
+  if (process.env.CRICAPI_KEY) return "cricapi";
+  return "mock";
+}
+
 export function getProvider() {
-  const name = (process.env.PROVIDER || "mock").toLowerCase();
+  const name = activeProviderName();
   const p = PROVIDERS[name];
   if (!p) throw new Error(`Unknown PROVIDER "${name}" (have: ${Object.keys(PROVIDERS).join(", ")})`);
   return p;

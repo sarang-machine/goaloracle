@@ -15,10 +15,6 @@ services:
         value: "22"
       - key: SPORT
         value: football
-      - key: PROVIDER
-        value: mock          # set to "cricapi" + CRICAPI_KEY for real results
-      - key: SMS_PROVIDER
-        value: mock          # set to a real SMS gateway for live phone login
       - key: ADMIN_TOKEN
         generateValue: true  # Render generates a strong secret
       - key: AUTH_SECRET
@@ -27,10 +23,17 @@ services:
         fromDatabase:
           name: goal-oracle-db
           property: connectionString
-      # - key: FOOTBALLDATA_KEY  # add for real World Cup results
-      #   sync: false
-      # - key: GOOGLE_CLIENT_ID  # add for real Google One Tap
-      #   sync: false
+      # ---- Dashboard-managed (sync:false → the blueprint NEVER overwrites these) ----
+      # Set FOOTBALLDATA_KEY in the Render dashboard to go live with real World
+      # Cup data; the app auto-uses football-data when the key is present.
+      - key: FOOTBALLDATA_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      # PROVIDER is optional — only set it to force a provider. Leave it unset and
+      # the app infers it from the key above. sync:false so it's never reset.
+      - key: PROVIDER
+        sync: false
 
 databases:
   - name: goal-oracle-db
