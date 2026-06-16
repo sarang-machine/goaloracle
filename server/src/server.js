@@ -26,6 +26,7 @@ import { dateKey, buildChallenge } from "./challenges.js";
 import { getChallenge, saveChallenge, getPick, savePick, getUser, allUsers, findUserByInvite, linkFriends } from "./store.js";
 import { resolveDay, resolveDue, syncStatus } from "./resolver.js";
 import { requestOtp, verifyOtp, loginWithGoogle, authUserId } from "./auth.js";
+import { buildChallengeFromFixtures } from "./publisher.js";
 
 const app = express();
 app.use(express.json());
@@ -43,11 +44,20 @@ const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "dev-secret-change-me";
 const requireAdmin = (req, res, next) =>
   req.get("X-Admin-Token") === ADMIN_TOKEN ? next() : res.status(401).json({ error: "bad admin token" });
 
-/* Ensure today's challenge exists (auto-publish on first request). */
+/* Ensure today's challenge exists (auto-publish on first request).
+   With PROVIDER=footballdata + a key, publish the REAL fixture of the day;
+   otherwise fall back to the static demo bank. */
 async function ensureToday() {
   const key = dateKey();
   let ch = await getChallenge(key);
-  if (!ch) ch = await saveChallenge(buildChallenge());
+  if (!ch) {
+    let built = null;
+    if ((process.env.PROVIDER || "").toLowerCase() === "footballdata") {
+      try { built = await buildChallengeFromFixtures(); }
+      catch (e) { console.warn("[publisher]", e.message); }
+    }
+    ch = await saveChallenge(built || buildChallenge());
+  }
   return syncStatus(ch);
 }
 
