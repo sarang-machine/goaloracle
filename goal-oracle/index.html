@@ -473,23 +473,13 @@
   <div class="backdrop hidden" id="authModal">
     <div class="modal">
       <button class="modal-x" id="authX">✕</button>
-      <h2>Sign In</h2>
-      <div id="authStep1">
-        <div id="googleArea" style="margin-bottom:14px">
-          <div id="gsiBtn"></div>
-          <button class="btn btn-ghost" id="googleDemoBtn" style="display:none">Continue with Google</button>
-        </div>
-        <p class="authline" style="text-align:center;opacity:.55;margin:0 0 14px">— or —</p>
-        <p class="authline">Enter your email — we'll send a code so your streak &amp; rank are saved and friends can find you.</p>
-        <input class="nbinput" id="emailInput" placeholder="you@email.com" inputmode="email" autocomplete="email" />
-        <button class="btn btn-primary" id="sendOtpBtn" style="margin-top:14px">Send Code</button>
+      <h2>Join The<br>Game</h2>
+      <p class="authline">⚽ Sign in to lock your <b>streak</b>, climb the <b>leaderboard</b>, and challenge your friends. One prediction a day — group stage to the Final. 🏆</p>
+      <div id="googleArea" style="margin-top:16px">
+        <div id="gsiBtn"></div>
+        <button class="btn btn-ghost" id="googleDemoBtn" style="display:none">Continue with Google</button>
       </div>
-      <div id="authStep2" style="display:none">
-        <p class="authline" id="otpHint">Enter the 6-digit code.</p>
-        <input class="nbinput" id="otpInput" placeholder="——————" inputmode="numeric" maxlength="6" />
-        <button class="btn btn-go" id="verifyOtpBtn" style="margin-top:14px">Verify &amp; Sign In</button>
-        <button class="btn btn-ghost" id="otpBackBtn" style="margin-top:10px">← Change email</button>
-      </div>
+      <p class="micro" style="margin-top:14px">Quick &amp; free — no passwords, just your Google account.</p>
     </div>
   </div>
 
@@ -1029,38 +1019,10 @@
   /* ---------- Accounts / friends actions ---------- */
   function openAuth() {
     if (MODE !== "online") { toast("⚠ Sign-in needs the live server running"); return; }
-    $("#authStep1").style.display = "block"; $("#authStep2").style.display = "none";
-    $("#emailInput").value = ""; $("#otpInput").value = "";
     $("#authModal").classList.remove("hidden");
     setupGoogle();
   }
   function closeAuth() { $("#authModal").classList.add("hidden"); }
-
-  async function sendOtp() {
-    const email = $("#emailInput").value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast("Enter a valid email"); return; }
-    $("#sendOtpBtn").disabled = true;
-    try {
-      const r = await api("/api/auth/request-otp", { method:"POST", body: JSON.stringify({ email }) });
-      $("#authStep1").style.display = "none"; $("#authStep2").style.display = "block";
-      $("#otpHint").innerHTML = r.devCode
-        ? `Demo mode — your code is <b>${r.devCode}</b>` : "Enter the 6-digit code we emailed you.";
-      if (r.devCode) $("#otpInput").value = r.devCode;
-      $("#otpInput").focus();
-    } catch (e) { toast("⚠ " + (e.body?.error || "Couldn't send code")); }
-    finally { $("#sendOtpBtn").disabled = false; }
-  }
-
-  async function verifyOtp() {
-    const email = $("#emailInput").value.trim();
-    const code = $("#otpInput").value.trim();
-    $("#verifyOtpBtn").disabled = true;
-    try {
-      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ email, code, ref: refParam(), priorId: uid() }) });
-      await finishLogin(r);
-    } catch (e) { toast("⚠ " + (e.body?.error || "Verification failed")); }
-    finally { $("#verifyOtpBtn").disabled = false; }
-  }
 
   /* Store the session and refresh into the signed-in state (shared by email + Google). */
   async function finishLogin(r) {
@@ -1160,12 +1122,9 @@
     $("#modalX").addEventListener("click", closeModal);
     $("#modalGo").addEventListener("click", closeModal);
 
-    // accounts / friends
+    // accounts / friends (Google only)
     $("#rankSignInBtn").addEventListener("click", openAuth);
     $("#authX").addEventListener("click", closeAuth);
-    $("#sendOtpBtn").addEventListener("click", sendOtp);
-    $("#verifyOtpBtn").addEventListener("click", verifyOtp);
-    $("#otpBackBtn").addEventListener("click", () => { $("#authStep2").style.display="none"; $("#authStep1").style.display="block"; });
     $("#addFriendBtn").addEventListener("click", addFriend);
     $("#googleDemoBtn").addEventListener("click", googleDemoLogin);
   }

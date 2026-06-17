@@ -51,7 +51,14 @@ const requireAdmin = (req, res, next) =>
 async function ensureToday() {
   const key = dateKey();
   let ch = await getChallenge(key);
-  if (ch) return syncStatus(ch);
+  if (ch) {
+    // Lazy-resolve: if the match is over but not yet graded, try now so opening
+    // the app resolves it immediately (don't wait for the next cron tick).
+    if (ch.status !== "resolved" && Date.now() >= new Date(ch.resultTime).getTime()) {
+      try { await resolveDay(key); ch = await getChallenge(key); } catch (e) { console.warn("[resolve]", e.message); }
+    }
+    return syncStatus(ch);
+  }
 
   const sport = (process.env.SPORT || "football").toLowerCase();
   let built = null;
