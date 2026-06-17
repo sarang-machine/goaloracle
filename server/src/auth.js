@@ -31,7 +31,12 @@ async function sendEmail(email, code) {
       body: JSON.stringify({ from, to: [email], subject: "Your Goal Oracle code",
         text: `Your Goal Oracle login code is ${code}. It expires in 5 minutes.` }),
     });
-    if (!res.ok) throw new Error("resend HTTP " + res.status);
+    if (!res.ok) {
+      let detail = "";
+      try { const b = await res.json(); detail = b?.message || b?.name || JSON.stringify(b); } catch {}
+      console.warn(`[email:resend] ${res.status} ${detail}`);
+      throw new Error(`email send failed (${res.status})${detail ? ": " + detail : ""}`);
+    }
     return { sent: true };
   }
   throw new Error(`Email provider "${provider}" not configured`);
