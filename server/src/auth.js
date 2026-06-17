@@ -9,7 +9,7 @@
    ========================================================================= */
 
 import crypto from "node:crypto";
-import { getUser, saveUser, findUserByEmail, findUserByGoogle, setOtp, getOtp, clearOtp } from "./store.js";
+import { getUser, saveUser, findUserByEmail, findUserByGoogle, setOtp, getOtp, clearOtp, deleteUser, repointPicks } from "./store.js";
 
 const SECRET = process.env.AUTH_SECRET || "dev-auth-secret-change-me";
 const OTP_TTL_MS = 5 * 60 * 1000;
@@ -39,6 +39,27 @@ async function sendEmail(email, code) {
 
 function genCode() { return String(crypto.randomInt(0, 1_000_000)).padStart(6, "0"); }
 function genInvite() { return crypto.randomBytes(4).toString("hex").slice(0, 6).toUpperCase(); }
+
+/* Carry an anonymous device's progress into the account it just signed into.
+   Only adopts the anon's stats when the account is brand-new (so we never
+   double-count); then re-keys today's pick and removes the anon record. */
+async function mergeAnon(account, priorId) {
+  if (!priorId || priorId === account.userId) return;
+  const anon = await getUser(priorId);
+  const anonHasProgress = anon.played > 0 || anon.streak > 0 || (anon.history && anon.history.length > 0);
+  const acctFresh = account.played === 0 && account.streak === 0 && (!account.history || account.history.length === 0);
+  if (anonHasProgress && acctFresh) {
+    account.streak = anon.streak;
+    account.best = Math.max(account.best || 0, anon.best || 0);
+    account.wins = anon.wins || 0;
+    account.played = anon.played || 0;
+    account.score = anon.score || account.score;
+    account.history = anon.history || [];
+    await saveUser(account);
+    await repointPicks(priorId, account.userId);
+  }
+  await deleteUser(priorId);  // remove the anon so it doesn't linger on the leaderboard
+}
 export function normEmail(e) { return String(e || "").trim().toLowerCase(); }
 function isEmail(e) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e); }
 
@@ -53,7 +74,7 @@ export async function requestOtp(email) {
   return { ok: true, devCode: (process.env.EMAIL_PROVIDER || "mock") === "mock" ? res.devCode : undefined };
 }
 
-export async function verifyOtp(email, code) {
+export async function verifyOtp(email, code, priorId) {
   email = normEmail(email);
   const rec = await getOtp(email);
   if (!rec) throw new Error("no code requested for this email");
@@ -63,6 +84,7 @@ export async function verifyOtp(email, code) {
 
   // Find or create the account for this email (shared with Google sign-in).
   let user = await findUserByEmail(email);
+  const isNew = !user;
   if (!user) {
     const userId = "u_" + crypto.randomBytes(6).toString("hex");
     user = await getUser(userId);
@@ -72,6 +94,7 @@ export async function verifyOtp(email, code) {
     user.friends = user.friends || [];
     await saveUser(user);
   }
+  if (isNew) await mergeAnon(user, priorId);   // carry anon progress into a new account
   return { user, token: signToken(user.userId) };
 }
 
@@ -80,7 +103,7 @@ export async function verifyOtp(email, code) {
    find-or-create the matching account. With no GOOGLE_CLIENT_ID set we run in
    dev/mock mode and accept a "mock.<base64 json>" credential so the whole flow
    is testable without a real Google project. */
-export async function loginWithGoogle(credential) {
+export async function loginWithGoogle(credential, priorId) {
   const profile = await verifyGoogle(credential);
   if (!profile?.sub) throw new Error("could not read Google profile");
 
@@ -91,6 +114,7 @@ export async function loginWithGoogle(credential) {
     user = await findUserByEmail(email);
     if (user && !user.googleId) { user.googleId = profile.sub; await saveUser(user); }
   }
+  const isNew = !user;
   if (!user) {
     const userId = "u_" + crypto.randomBytes(6).toString("hex");
     user = await getUser(userId);
@@ -101,6 +125,7 @@ export async function loginWithGoogle(credential) {
     user.friends = user.friends || [];
     await saveUser(user);
   }
+  if (isNew) await mergeAnon(user, priorId);   // carry anon progress into a new account
   return { user, token: signToken(user.userId) };
 }
 

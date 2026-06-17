@@ -120,6 +120,19 @@ export async function findUserByInvite(code) {
   const c = String(code || "").toUpperCase();
   return (await allUsers()).find((u) => u.inviteCode === c) || null;
 }
+export async function deleteUser(userId) { delete (await read()).users[userId]; await flush(); }
+
+/* Move a user's picks to another id (used when an anon device signs in).
+   If the target already has a pick that day, the source's is dropped (dedupe). */
+export async function repointPicks(fromId, toId) {
+  const db = await read();
+  for (const date in db.picks) {
+    const day = db.picks[date];
+    if (day[fromId]) { if (!day[toId]) day[toId] = day[fromId]; delete day[fromId]; }
+  }
+  await flush();
+}
+
 /* Make two users mutual friends (idempotent). */
 export async function linkFriends(idA, idB) {
   if (idA === idB) return false;

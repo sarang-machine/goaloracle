@@ -113,7 +113,7 @@ app.post("/api/auth/request-otp", async (req, res) => {
 
 app.post("/api/auth/verify-otp", async (req, res) => {
   try {
-    const { user, token } = await verifyOtp(req.body?.email, req.body?.code);
+    const { user, token } = await verifyOtp(req.body?.email, req.body?.code, req.body?.priorId);
     // Optional: auto-friend whoever referred them (invite code).
     if (req.body?.ref) { const f = await findUserByInvite(req.body.ref); if (f) await linkFriends(user.userId, f.userId); }
     res.json({ ok: true, token, userId: user.userId, name: user.name, inviteCode: user.inviteCode });
@@ -122,7 +122,7 @@ app.post("/api/auth/verify-otp", async (req, res) => {
 
 app.post("/api/auth/google", async (req, res) => {
   try {
-    const { user, token } = await loginWithGoogle(req.body?.credential);
+    const { user, token } = await loginWithGoogle(req.body?.credential, req.body?.priorId);
     if (req.body?.ref) { const f = await findUserByInvite(req.body.ref); if (f) await linkFriends(user.userId, f.userId); }
     res.json({ ok: true, token, userId: user.userId, name: user.name, inviteCode: user.inviteCode });
   } catch (e) { res.status(400).json({ error: e.message }); }

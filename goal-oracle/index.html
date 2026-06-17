@@ -1054,7 +1054,7 @@
     const code = $("#otpInput").value.trim();
     $("#verifyOtpBtn").disabled = true;
     try {
-      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ email, code, ref: refParam() }) });
+      const r = await api("/api/auth/verify-otp", { method:"POST", body: JSON.stringify({ email, code, ref: refParam(), priorId: uid() }) });
       await finishLogin(r);
     } catch (e) { toast("⚠ " + (e.body?.error || "Verification failed")); }
     finally { $("#verifyOtpBtn").disabled = false; }
@@ -1076,7 +1076,7 @@
   /* ---- Google Sign-In / One Tap ---- */
   async function loginGoogle(credential) {
     try {
-      const r = await api("/api/auth/google", { method:"POST", body: JSON.stringify({ credential, ref: refParam() }) });
+      const r = await api("/api/auth/google", { method:"POST", body: JSON.stringify({ credential, ref: refParam(), priorId: uid() }) });
       await finishLogin(r);
     } catch (e) { toast("⚠ " + (e.body?.error || "Google sign-in failed")); }
   }
