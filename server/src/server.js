@@ -114,6 +114,15 @@ function publicChallenge(ch) {
   return { ...ch, answer: status === "resolved" ? answer : null };
 }
 
+/* Add a match's seed ("house") votes to the real tally so polls aren't empty. */
+function withSeed(ch, tally) {
+  const seed = ch.seed || {};
+  const counts = { ...tally.counts };
+  let total = tally.total;
+  for (const o in seed) { const n = Number(seed[o]) || 0; if (n > 0) { counts[o] = (counts[o] || 0) + n; total += n; } }
+  return { total, counts };
+}
+
 app.get("/api/health", (_req, res) => res.json({ ok: true, provider: activeProviderName(),
   googleClientId: process.env.GOOGLE_CLIENT_ID || null }));   // public — client IDs aren't secret
 
@@ -126,7 +135,7 @@ app.get("/api/board", async (req, res) => {
     const myPick = userId ? await getPick(ch.id, userId) : null;
     return {
       ...publicChallenge(ch),
-      votes: await tallyPicks(ch.id),
+      votes: withSeed(ch, await tallyPicks(ch.id)),
       myPick: myPick ? { option: myPick.option, locked: !!myPick.locked, correct: myPick.correct } : null,
     };
   };
@@ -140,7 +149,7 @@ app.get("/api/board", async (req, res) => {
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();
   if (!ch) return res.json({ pending: true });
-  res.json({ ...publicChallenge(ch), votes: await tallyPicks(ch.id) });
+  res.json({ ...publicChallenge(ch), votes: withSeed(ch, await tallyPicks(ch.id)) });
 });
 
 app.post("/api/pick", async (req, res) => {
@@ -258,6 +267,15 @@ app.post("/api/admin/publish", requireAdmin, async (req, res) => {
 app.post("/api/admin/resolve", requireAdmin, async (req, res) => {
   const date = req.body?.date || dateKey();
   res.json(await resolveDay(date));
+});
+
+/* Set/override a match's seed ("house") votes. Body: { matchId, counts:{opt:n} }. */
+app.post("/api/admin/seed", requireAdmin, async (req, res) => {
+  const { matchId, counts } = req.body || {};
+  const ch = await getChallenge(matchId);
+  if (!ch) return res.status(404).json({ error: "no such match" });
+  if (counts && typeof counts === "object") { ch.seed = counts; await saveChallenge(ch); }
+  res.json({ ok: true, matchId, seed: ch.seed || {} });
 });
 
 /* ---- Serve the front-end (same origin → no CORS, one deployable service) ----

@@ -391,8 +391,13 @@
         <button class="btn btn-go" id="shareBtn" style="width:100%">Share My Results 📲</button>
       </div>
 
-      <!-- Ad -->
-      <div class="ad">— Advertisement —</div>
+      <!-- House ad slot — swap this for a real ad unit (e.g. an AdSense <ins>
+           block or a paid sponsor's banner) once you monetize. For now it's a
+           growth CTA so the space is useful, not empty. -->
+      <div class="ad" id="adSlot">
+        <p style="margin-bottom:12px">📣 Sponsor the daily World Cup pick — your brand here.</p>
+        <button class="btn btn-ghost" id="adInvite" style="width:100%">Invite Friends ＋</button>
+      </div>
     </section>
 
     <!-- =====================================================================
@@ -645,10 +650,10 @@
       votes:synthVotes(b.options, dayNumber() + id.split("").reduce((a,c)=>a+c.charCodeAt(0),0)) };
   }
   function synthBoard() {
-    const now = Date.now(), bank = CHALLENGE_BANK, L = bank.length;
-    const upcoming = [0,1,2].map((k) => demoMatch(bank[(dayNumber()+k) % L], "demo-u"+k,
+    const now = Date.now(), bank = CHALLENGE_BANK, L = bank.length, N = 5;
+    const upcoming = Array.from({length:N}, (_,k) => demoMatch(bank[(dayNumber()+k) % L], "demo-u"+k,
       { lockTime:new Date(now+(k+1)*3600000).toISOString(), resultTime:new Date(now+(k+4)*3600000).toISOString(), status:"open" }));
-    const recent = [0,1,2].map((k) => { const b = bank[(dayNumber()-k-1 + L*3) % L];
+    const recent = Array.from({length:N}, (_,k) => { const b = bank[(dayNumber()-k-1 + L*3) % L];
       return demoMatch(b, "demo-r"+k, { lockTime:new Date(now-(k+3)*3600000).toISOString(), resultTime:new Date(now-(k+2)*3600000).toISOString(), status:"resolved", answer:b.answer }); });
     return { upcoming, recent };
   }
@@ -965,19 +970,22 @@
     } catch (e) { toast("⚠ " + (e.body?.error || "Couldn't add friend")); }
   }
 
+  async function copyInvite() {
+    const code = localStorage.getItem("go_code") || uid().slice(-5);
+    const link = (location.origin !== "null" ? location.origin + location.pathname : "https://goaloracle.app") + "?ref=" + code;
+    const msg = isAuthed() ? "Invite link copied 🔗 (friends auto-add when they join)" : "Invite link copied 🔗";
+    try { await navigator.clipboard.writeText(link); toast(msg); }
+    catch { toast("Share: " + link); }
+  }
+
   /* ---------- Init ---------- */
   function bindEvents() {
     $("#shareBtn").addEventListener("click", shareResult);
     $("#shareBtn2").addEventListener("click", shareResult);
     $("#streakChip").addEventListener("click", () =>
       toast(statsView().streak ? `🔥 ${statsView().streak}-day streak — keep it alive!` : "Predict a match to start your streak 🔥"));
-    $("#inviteBtn").addEventListener("click", async () => {
-      const code = localStorage.getItem("go_code") || uid().slice(-5);
-      const link = (location.origin !== "null" ? location.origin + location.pathname : "https://goaloracle.app") + "?ref=" + code;
-      const msg = isAuthed() ? "Invite link copied 🔗 (friends auto-add when they join)" : "Invite link copied 🔗";
-      try { await navigator.clipboard.writeText(link); toast(msg); }
-      catch { toast("Share: " + link); }
-    });
+    $("#inviteBtn").addEventListener("click", copyInvite);
+    const ai = $("#adInvite"); if (ai) ai.addEventListener("click", copyInvite);
     $("#resetBtn").addEventListener("click", () => {
       if (confirm("Reset your progress on this device? (Starts a fresh player.)")) {
         ["go_uid","go_name","go_seen","go_token","go_code",STORE_KEY].forEach((k) => localStorage.removeItem(k));

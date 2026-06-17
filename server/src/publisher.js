@@ -34,6 +34,22 @@ function stageLabel(stage) {
   return map[s] || (s ? s.replace(/_/g, " ") : "WORLD CUP 2026");
 }
 
+/* Seed ("house") votes so a poll never starts at zero. Deterministic per match
+   and unevenly split, so it looks like real early votes. SEED_VOTES_BASE=0
+   disables it; admins can override per match via /api/admin/seed. */
+export function seedVotes(options, idStr) {
+  const base = process.env.SEED_VOTES_BASE !== undefined ? Number(process.env.SEED_VOTES_BASE) : 100;
+  if (!base || base <= 0 || !options?.length) return {};
+  let s = 0; for (const c of String(idStr)) s = (s * 31 + c.charCodeAt(0)) & 0x7fffffff;
+  const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  const total = Math.round(base * (0.5 + rnd()));          // base×0.5 … base×1.5
+  const weights = options.map(() => 0.25 + rnd());
+  const wsum = weights.reduce((a, b) => a + b, 0);
+  const counts = {};
+  options.forEach((o, i) => { counts[o] = Math.max(1, Math.round(total * weights[i] / wsum)); });
+  return counts;
+}
+
 /* Map one football-data match object → our challenge shape. */
 export function fixtureToChallenge(m, day) {
   const home = m.homeTeam?.name || "Home", away = m.awayTeam?.name || "Away";
@@ -42,6 +58,7 @@ export function fixtureToChallenge(m, day) {
   // games; allow for extra-time + penalties on knockouts. The resolver retries
   // anyway, but this avoids asking too early on every tick.
   const resultHours = isGroup ? 2.25 : 3.5;
+  const options = isGroup ? [home, "Draw", away] : [home, away];
   return {
     id: String(m.id),                                   // keyed per fixture
     date: day || (m.utcDate ? m.utcDate.slice(0, 10) : dateKey()),
@@ -52,13 +69,14 @@ export function fixtureToChallenge(m, day) {
     type: "winner",
     // Group games can draw, so offer Draw; knockouts always have a winner.
     question: isGroup ? "Match result?" : "Which team will win?",
-    options: isGroup ? [home, "Draw", away] : [home, away],
+    options,
     points: 100,
     apiMatchId: String(m.id),
     lockTime: m.utcDate,
     resultTime: new Date(new Date(m.utcDate).getTime() + resultHours * 3600 * 1000).toISOString(),
     status: "open",
     answer: null,
+    seed: seedVotes(options, String(m.id)),             // house votes so the poll isn't empty
   };
 }
 
@@ -94,7 +112,7 @@ export async function buildChallengeFromFixtures(date = new Date()) {
 
 /* Fetch a window of fixtures and return the next N upcoming + last N recent,
    each as a challenge object (id = fixture id). Returns null with no key. */
-export async function fetchBoardFixtures(date = new Date(), n = 3) {
+export async function fetchBoardFixtures(date = new Date(), n = Number(process.env.BOARD_SIZE) || 5) {
   const key = process.env.FOOTBALLDATA_KEY;
   if (!key) return null;
   const comp = process.env.WC_COMPETITION || "WC";
