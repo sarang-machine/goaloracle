@@ -79,10 +79,14 @@ async function ensureToday() {
 
 /* Build the board: next 3 upcoming + last 3 recently-completed fixtures.
    Returns null (→ pending) when there's no real data provider. */
+let _fxCache = { at: 0, data: null };          // cache upstream fixtures to stay under the API rate limit
 async function ensureBoard() {
   if (activeProviderName() !== "footballdata") return null;   // no fake board
-  let fixtures;
-  try { fixtures = await fetchBoardFixtures(); } catch (e) { console.warn("[board]", e.message); }
+  let fixtures = _fxCache.data;
+  if (!fixtures || Date.now() - _fxCache.at > 60_000) {
+    try { const fx = await fetchBoardFixtures(); if (fx) { fixtures = fx; _fxCache = { at: Date.now(), data: fx }; } }
+    catch (e) { console.warn("[board]", e.message); }
+  }
   if (!fixtures) return null;
 
   // Upsert any fixture we don't already have (keep stored ones with their state).
