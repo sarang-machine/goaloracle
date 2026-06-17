@@ -52,11 +52,12 @@ async function ensureToday() {
   const key = dateKey();
   let ch = await getChallenge(key);
   if (ch) {
-    // Lazy-resolve: if the match is over but not yet graded, try now so opening
-    // the app resolves it immediately (don't wait for the next cron tick).
-    if (ch.status !== "resolved" && Date.now() >= new Date(ch.resultTime).getTime()) {
-      try { await resolveDay(key); ch = await getChallenge(key); } catch (e) { console.warn("[resolve]", e.message); }
-    }
+    // Lazy-resolve on app-open: grade ANY due-but-unresolved match — today's and
+    // any orphaned prior-day rows (rest-day look-ahead files a future fixture
+    // under an earlier key). resolveDue only hits the network for rows past their
+    // result time, so it's a no-op before kickoff+. Don't wait for the cron tick.
+    try { await resolveDue(); ch = await getChallenge(key); }
+    catch (e) { console.warn("[resolve]", e.message); }
     return syncStatus(ch);
   }
 

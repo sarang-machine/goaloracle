@@ -665,6 +665,7 @@
       myPick: t ? t.pick : null,
       locked: !!(t && t.locked),
       resolved: !!(t && t.revealed),
+      iPlayed: !!(t && t.pick),
       correct: t ? t.correct : null,
       answer: (t && t.revealed) ? offlineChallenge.answer : null,
       canReveal: !!(t && t.locked && !t.revealed),
@@ -676,14 +677,15 @@
 
   function viewFromServer() {
     const ch = srv.ch, pick = srv.pick, me = srv.me;
-    const resolved = ch.status === "resolved";
+    const resolved = ch.status === "resolved";          // the MATCH is resolved (whether or not I picked)
     const locked = ch.status !== "open" || !!(pick && pick.locked);
     return {
       challenge: ch, options: ch.options,
       lockTime: ch.lockTime,
       myPick: pick ? pick.option : null,
       locked,
-      resolved: resolved && !!(pick && pick.option),
+      resolved,
+      iPlayed: !!(pick && pick.option),                  // did I lock a pick on this match
       correct: pick ? pick.correct : null,
       answer: resolved ? ch.answer : null,
       canReveal: false,                                  // ← no demo reveal in live mode
@@ -802,16 +804,17 @@
         b.classList.toggle("selected", b.querySelector(".lbl").textContent === view.myPick);
       });
       $("#lockBtn").classList.add("hidden");
-      if (view.myPick) {
+      if (view.resolved) markOptions();        // green/red marks once the match is graded
+      renderVotes();                           // show the community split (everyone, once locked)
+      if (view.iPlayed || view.resolved) {
         $("#resultCard").classList.remove("hidden");
-        $("#microNote").textContent = "You're locked in. Here's how everyone's voting 👇";
-        if (view.resolved) markOptions();
-        renderVotes();
+        $("#microNote").textContent = view.iPlayed
+          ? "You're locked in. Here's how everyone's voting 👇"
+          : "Match locked. Here's how everyone voted 👇";
         renderResult();
       } else {
         $("#resultCard").classList.add("hidden");
         $("#microNote").textContent = "Picks are locked — come back tomorrow.";
-        renderVotes();
       }
     } else {
       $("#lockBtn").classList.remove("hidden");
@@ -824,9 +827,15 @@
   function renderResult() {
     const reveal = $("#revealBtn");
     if (view.resolved) {
-      $("#resultEmoji").textContent = view.correct ? "✅" : "❌";
-      $("#resultTitle").textContent = view.correct ? "Nailed It!" : "So Close!";
-      $("#resultSub").textContent = view.correct ? `Streak now ${view.stats.streak} 🔥` : `Answer: ${view.answer}. Back tomorrow!`;
+      if (view.iPlayed) {
+        $("#resultEmoji").textContent = view.correct ? "✅" : "❌";
+        $("#resultTitle").textContent = view.correct ? "Nailed It!" : "So Close!";
+        $("#resultSub").textContent = view.correct ? `Streak now ${view.stats.streak} 🔥` : `Result: ${view.answer}. Back tomorrow!`;
+      } else {
+        $("#resultEmoji").textContent = "🏁";
+        $("#resultTitle").textContent = "Full Time";
+        $("#resultSub").textContent = `Result: ${view.answer}. You didn't pick — back tomorrow!`;
+      }
       reveal.classList.add("hidden");
     } else {
       $("#resultEmoji").textContent = "⏳";
@@ -960,7 +969,8 @@
       renderAll();
       if (view.resolved && !was) {
         renderStreakChip(true);
-        toast(view.correct ? "CORRECT! 🎉 +points" : "MISSED! Streak reset 💔");
+        toast(view.iPlayed ? (view.correct ? "CORRECT! 🎉 +points" : "MISSED! Streak reset 💔")
+                           : `🏁 Full time — ${view.answer} won`);
         if (currentBoard === "global") { await fetchServerBoard(); renderBoard("global"); }
         stopPolling();
       }
@@ -1033,7 +1043,7 @@
     closeAuth();
     await refreshServer(); await fetchServerBoard(); await fetchFriendsBoard();
     renderAll();
-    if (view.myPick && !view.resolved) startPolling();
+    if (view.locked && !view.resolved) startPolling();
     toast("Signed in ✓ Welcome, " + (r.name || "Player"));
   }
 
@@ -1140,7 +1150,7 @@
       await fetchServerBoard();
       if (isAuthed()) await fetchFriendsBoard();
       renderAll();
-      if (view.myPick && !view.resolved) startPolling();
+      if (view.locked && !view.resolved) startPolling();
     } catch {
       MODE = "offline";
       view = viewFromLocal();   // standalone (no backend) → local demo bank

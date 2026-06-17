@@ -38,6 +38,10 @@ function stageLabel(stage) {
 export function fixtureToChallenge(m, day) {
   const home = m.homeTeam?.name || "Home", away = m.awayTeam?.name || "Away";
   const isGroup = (m.stage || "").toUpperCase().includes("GROUP");
+  // Earliest the result can be expected: 90' + half-time + stoppage for group
+  // games; allow for extra-time + penalties on knockouts. The resolver retries
+  // anyway, but this avoids asking too early on every tick.
+  const resultHours = isGroup ? 2.25 : 3.5;
   return {
     date: day,
     league: stageLabel(m.stage),
@@ -51,7 +55,7 @@ export function fixtureToChallenge(m, day) {
     points: 100,
     apiMatchId: String(m.id),
     lockTime: m.utcDate,
-    resultTime: new Date(new Date(m.utcDate).getTime() + 2.5 * 3600 * 1000).toISOString(),
+    resultTime: new Date(new Date(m.utcDate).getTime() + resultHours * 3600 * 1000).toISOString(),
     status: "open",
     answer: null,
   };
