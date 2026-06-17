@@ -7,27 +7,28 @@
    does). Returns a summary of what happened.
    ========================================================================= */
 
-import { getChallenge, saveChallenge, picksForDate, getUser, saveUser } from "./store.js";
+import { getChallenge, saveChallenge, picksForMatch, getUser, saveUser, allChallenges } from "./store.js";
 import { getProvider } from "./providers.js";
 import { liveStatus } from "./challenges.js";
 
-export async function resolveDay(date) {
-  const ch = await getChallenge(date);
-  if (!ch) return { date, ok: false, reason: "no challenge published" };
-  if (ch.status === "resolved") return { date, ok: true, reason: "already resolved", graded: 0 };
+/* Resolve a single match by its id (apiMatchId / challenge id). */
+export async function resolveMatch(id) {
+  const ch = await getChallenge(id);
+  if (!ch) return { id, ok: false, reason: "no challenge published" };
+  if (ch.status === "resolved") return { id, ok: true, reason: "already resolved", graded: 0 };
 
   // Don't even ask the provider until the match should be over.
   if (Date.now() < new Date(ch.resultTime).getTime()) {
-    return { date, ok: false, reason: "too early (match not finished)" };
+    return { id, ok: false, reason: "too early (match not finished)" };
   }
 
   let result;
   try {
     result = await getProvider().getResult(ch);
   } catch (err) {
-    return { date, ok: false, reason: `provider error: ${err.message}` };
+    return { id, ok: false, reason: `provider error: ${err.message}` };
   }
-  if (!result || !result.answer) return { date, ok: false, reason: "result not available yet" };
+  if (!result || !result.answer) return { id, ok: false, reason: "result not available yet" };
 
   // ---- Persist the answer ----
   ch.answer = result.answer;
@@ -37,16 +38,17 @@ export async function resolveDay(date) {
   await saveChallenge(ch);
 
   // ---- Grade every pick ----
-  const picks = await picksForDate(date);
+  const picks = await picksForMatch(id);
   let correctCount = 0;
   for (const [userId, pick] of picks) {
+    if (pick.correct !== null && pick.gradedAt) continue;   // already graded
     const correct = pick.option === ch.answer;
     pick.correct = correct;
     pick.gradedAt = ch.resolvedAt;
 
     const user = await getUser(userId);
     user.played += 1;
-    user.history.push({ date, correct });
+    user.history.push({ date: ch.date, correct });
     if (user.history.length > 60) user.history = user.history.slice(-60);
     if (correct) {
       user.wins += 1;
@@ -59,21 +61,19 @@ export async function resolveDay(date) {
     }
     await saveUser(user);
   }
-  // picksForDate returns live references from the store cache, so the mutations
-  // above are already persisted by the saveUser flush; re-save picks explicitly
-  // is unnecessary here.
-
-  return { date, ok: true, answer: ch.answer, source: result.source, graded: picks.length, correct: correctCount };
+  return { id, ok: true, answer: ch.answer, source: result.source, graded: picks.length, correct: correctCount };
 }
 
+/* Back-compat alias (some callers pass a date that doubles as the id). */
+export const resolveDay = resolveMatch;
+
 /* Scan all published-but-unresolved challenges whose result time has passed
-   and try to resolve them. Called by the scheduler each tick. */
+   and try to resolve them. Called by the scheduler each tick and on app-open. */
 export async function resolveDue() {
-  const { allChallenges } = await import("./store.js");
   const out = [];
   for (const ch of await allChallenges()) {
     if (ch.status !== "resolved" && Date.now() >= new Date(ch.resultTime).getTime()) {
-      out.push(await resolveDay(ch.date));
+      out.push(await resolveMatch(ch.id || ch.date));
     }
   }
   return out;

@@ -43,7 +43,8 @@ export function fixtureToChallenge(m, day) {
   // anyway, but this avoids asking too early on every tick.
   const resultHours = isGroup ? 2.25 : 3.5;
   return {
-    date: day,
+    id: String(m.id),                                   // keyed per fixture
+    date: day || (m.utcDate ? m.utcDate.slice(0, 10) : dateKey()),
     league: stageLabel(m.stage),
     venue: m.venue || "FIFA World Cup 2026",
     home: { name: home, short: tla(m.homeTeam?.tla, home), color: teamColor(home) },
@@ -89,4 +90,35 @@ export async function buildChallengeFromFixtures(date = new Date()) {
   const when = m.utcDate.slice(0, 10);
   console.log(`[publisher] ${day}: next fixture ${ch.home.short} v ${ch.away.short} on ${when} (id ${ch.apiMatchId})`);
   return ch;
+}
+
+/* Fetch a window of fixtures and return the next N upcoming + last N recent,
+   each as a challenge object (id = fixture id). Returns null with no key. */
+export async function fetchBoardFixtures(date = new Date(), n = 3) {
+  const key = process.env.FOOTBALLDATA_KEY;
+  if (!key) return null;
+  const comp = process.env.WC_COMPETITION || "WC";
+  const from = dateKey(new Date(date.getTime() - 7 * 86400000));
+  const to = dateKey(new Date(date.getTime() + 14 * 86400000));
+
+  let res;
+  try { res = await fetch(`https://api.football-data.org/v4/competitions/${comp}/matches?dateFrom=${from}&dateTo=${to}`, { headers: { "X-Auth-Token": key } }); }
+  catch (e) { console.warn("[publisher] board fetch failed:", e.message); return null; }
+  if (!res.ok) { console.warn(`[publisher] board HTTP ${res.status}`); return null; }
+
+  const ms = (await res.json()).matches || [];
+  const upcoming = ms.filter((m) => m.status !== "FINISHED")
+    .sort((a, b) => new Date(a.utcDate) - new Date(b.utcDate)).slice(0, n)
+    .map((m) => fixtureToChallenge(m));
+  const recent = ms.filter((m) => m.status === "FINISHED")
+    .sort((a, b) => new Date(b.utcDate) - new Date(a.utcDate)).slice(0, n)
+    .map((m) => {
+      const c = fixtureToChallenge(m);
+      // The feed already says FINISHED — resolve now, don't wait for the stage
+      // result-time floor (which is only there to avoid asking during a live game).
+      c.resultTime = m.utcDate;
+      c.status = "locked";
+      return c;
+    });
+  return { upcoming, recent };
 }

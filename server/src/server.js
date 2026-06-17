@@ -26,7 +26,7 @@ import { dateKey, buildChallenge } from "./challenges.js";
 import { getChallenge, saveChallenge, getPick, savePick, getUser, allUsers, findUserByInvite, linkFriends, tallyPicks } from "./store.js";
 import { resolveDay, resolveDue, syncStatus } from "./resolver.js";
 import { requestOtp, verifyOtp, loginWithGoogle, authUserId } from "./auth.js";
-import { buildChallengeFromFixtures } from "./publisher.js";
+import { buildChallengeFromFixtures, fetchBoardFixtures } from "./publisher.js";
 import { activeProviderName } from "./providers.js";
 
 const app = express();
@@ -77,6 +77,32 @@ async function ensureToday() {
   return syncStatus(await saveChallenge(built));
 }
 
+/* Build the board: next 3 upcoming + last 3 recently-completed fixtures.
+   Returns null (→ pending) when there's no real data provider. */
+async function ensureBoard() {
+  if (activeProviderName() !== "footballdata") return null;   // no fake board
+  let fixtures;
+  try { fixtures = await fetchBoardFixtures(); } catch (e) { console.warn("[board]", e.message); }
+  if (!fixtures) return null;
+
+  // Upsert any fixture we don't already have (keep stored ones with their state).
+  for (const f of [...fixtures.upcoming, ...fixtures.recent]) {
+    if (!(await getChallenge(f.id))) await saveChallenge(f);
+  }
+  // Resolve anything past its result time (the recent/finished ones, mainly).
+  try { await resolveDue(); } catch (e) { console.warn("[resolve]", e.message); }
+
+  const load = async (ids) => {
+    const out = [];
+    for (const id of ids) { const c = await getChallenge(id); if (c) out.push(await syncStatus(c)); }
+    return out;
+  };
+  return {
+    upcoming: await load(fixtures.upcoming.map((f) => f.id)),
+    recent: await load(fixtures.recent.map((f) => f.id)),
+  };
+}
+
 /* Strip fields the client shouldn't see before the match resolves. */
 function publicChallenge(ch) {
   const { answer, status } = ch;
@@ -86,32 +112,54 @@ function publicChallenge(ch) {
 app.get("/api/health", (_req, res) => res.json({ ok: true, provider: activeProviderName(),
   googleClientId: process.env.GOOGLE_CLIENT_ID || null }));   // public — client IDs aren't secret
 
+/* Board: next 3 upcoming (predictable) + last 3 completed (with results). */
+app.get("/api/board", async (req, res) => {
+  const board = await ensureBoard();
+  if (!board) return res.json({ pending: true });
+  const userId = authUserId(req) || req.query.userId || null;
+  const decorate = async (ch) => {
+    const myPick = userId ? await getPick(ch.id, userId) : null;
+    return {
+      ...publicChallenge(ch),
+      votes: await tallyPicks(ch.id),
+      myPick: myPick ? { option: myPick.option, locked: !!myPick.locked, correct: myPick.correct } : null,
+    };
+  };
+  res.json({
+    upcoming: await Promise.all(board.upcoming.map(decorate)),
+    recent: await Promise.all(board.recent.map(decorate)),
+  });
+});
+
+/* Single-match endpoint (kept for the cricket app / back-compat). */
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();
-  if (!ch) return res.json({ pending: true });   // no real fixture yet → UI shows loading
-  res.json({ ...publicChallenge(ch), votes: await tallyPicks(ch.date) });
+  if (!ch) return res.json({ pending: true });
+  res.json({ ...publicChallenge(ch), votes: await tallyPicks(ch.id) });
 });
 
 app.post("/api/pick", async (req, res) => {
-  const { name, option } = req.body || {};
+  const { matchId, name, option } = req.body || {};
   // Identity: a verified token wins; otherwise fall back to an anonymous id.
   const userId = authUserId(req) || req.body?.userId;
-  if (!userId || !option) return res.status(400).json({ error: "userId/token and option required" });
+  if (!userId || !option) return res.status(400).json({ error: "identity and option required" });
 
-  const ch = await ensureToday();
-  if (!ch) return res.status(409).json({ error: "no match available right now" });
+  // Pick the named match; fall back to today's single challenge (cricket).
+  const ch = matchId ? await getChallenge(matchId) : await ensureToday();
+  if (!ch) return res.status(404).json({ error: "no such match" });
   if (!ch.options.includes(option)) return res.status(400).json({ error: "invalid option" });
 
   // Server-authoritative lock: no picks (or changes) once the match starts.
-  if (Date.now() >= new Date(ch.lockTime).getTime())
+  await syncStatus(ch);
+  if (ch.status !== "open" || Date.now() >= new Date(ch.lockTime).getTime())
     return res.status(409).json({ error: "picks are locked for this match" });
 
-  const existing = await getPick(ch.date, userId);
+  const existing = await getPick(ch.id, userId);
   if (existing?.locked) return res.status(409).json({ error: "you already locked a pick" });
 
   if (name) { const u = await getUser(userId); if (!u.email) { u.name = name; } } // don't let anon overwrite a verified name
-  const pick = await savePick(ch.date, userId, { option, locked: true, ts: new Date().toISOString(), correct: null });
-  res.json({ ok: true, date: ch.date, pick });
+  const pick = await savePick(ch.id, userId, { option, locked: true, ts: new Date().toISOString(), correct: null });
+  res.json({ ok: true, matchId: ch.id, pick });
 });
 
 /* ---- Auth (email OTP) ---- */

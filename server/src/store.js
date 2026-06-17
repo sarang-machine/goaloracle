@@ -76,23 +76,24 @@ async function flush() {
   await rename(tmp, DB_FILE);
 }
 
-/* ---- Challenges (one per date) ---- */
-export async function getChallenge(date) { return (await read()).challenges[date] || null; }
-export async function saveChallenge(ch) { (await read()).challenges[ch.date] = ch; await flush(); return ch; }
+/* ---- Challenges (one per fixture, keyed by ch.id; falls back to ch.date) ---- */
+const chKey = (ch) => ch.id || ch.date;
+export async function getChallenge(id) { return (await read()).challenges[id] || null; }
+export async function saveChallenge(ch) { (await read()).challenges[chKey(ch)] = ch; await flush(); return ch; }
 export async function allChallenges() { return Object.values((await read()).challenges); }
 
-/* ---- Picks ( picks[date][userId] ) ---- */
-export async function getPick(date, userId) { return (await read()).picks[date]?.[userId] || null; }
-export async function savePick(date, userId, pick) {
+/* ---- Picks ( picks[matchId][userId] ) ---- */
+export async function getPick(matchId, userId) { return (await read()).picks[matchId]?.[userId] || null; }
+export async function savePick(matchId, userId, pick) {
   const db = await read();
-  (db.picks[date] ??= {})[userId] = pick;
+  (db.picks[matchId] ??= {})[userId] = pick;
   await flush();
   return pick;
 }
-export async function picksForDate(date) { return Object.entries((await read()).picks[date] || {}); }
-/* Vote distribution for a date: { total, counts: { option: n } }. */
-export async function tallyPicks(date) {
-  const entries = (await read()).picks[date] || {};
+export async function picksForMatch(matchId) { return Object.entries((await read()).picks[matchId] || {}); }
+/* Vote distribution for a match: { total, counts: { option: n } }. */
+export async function tallyPicks(matchId) {
+  const entries = (await read()).picks[matchId] || {};
   const counts = {}; let total = 0;
   for (const id in entries) { const o = entries[id].option; if (!o) continue; counts[o] = (counts[o] || 0) + 1; total++; }
   return { total, counts };

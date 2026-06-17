@@ -96,6 +96,7 @@ export function buildChallenge(date = new Date(), opts = {}) {
   const resultTime = opts.resultTime ?? new Date(now + 90_000).toISOString();
 
   return {
+    id: key,          // per-fixture key (date-based for the single daily challenge)
     date: key,
     ...base,
     apiMatchId: opts.apiMatchId ?? null, // ← real fixture id goes here in prod

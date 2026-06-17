@@ -196,6 +196,18 @@
 
   .micro { font-size: 11.5px; text-align: center; margin-top: 12px; opacity: .75; font-weight: 700; }
 
+  /* recent-result cards (compact) */
+  .recent-card .crest { height: 46px; font-size: 13px; }
+  .recent-card .question { font-size: 15px; margin-bottom: 10px; }
+  .resline { font-size: 13px; font-weight: 700; text-align: center; margin-top: 4px; }
+  .resline b { font-family: var(--press); font-size: 11px; }
+  .myres { display: inline-block; margin-top: 8px; font-family: var(--press); font-size: 9px;
+    padding: 5px 8px; border: var(--bd); box-shadow: 2px 2px 0 var(--black); }
+  .myres.win { background: var(--green); color: #07210f; }
+  .myres.loss { background: var(--red); color: #fff; }
+  .myres.none { background: var(--cream); }
+  .card-locked { font-size: 11px; font-weight: 700; text-align: center; margin-top: 10px; opacity: .8; }
+
   /* ---------- Result ---------- */
   .result-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
   .result-emoji {
@@ -360,36 +372,23 @@
          SCREEN: PLAY
          ===================================================================== -->
     <section class="screen active" id="screen-play">
-      <span class="seclabel solo">★ Today's Call ★</span>
-
-      <!-- Challenge -->
-      <div class="block">
-        <div class="ch-top">
-          <span class="tag" id="leagueTag">GROUP STAGE</span>
-          <span class="countdown" id="countdown">--:--:--</span>
-        </div>
-        <div class="matchup" id="matchup"></div>
-        <p class="venue" id="venue"></p>
-        <h2 class="question" id="question">Today's prediction…</h2>
-        <div class="options" id="options"></div>
-        <button class="btn btn-primary" id="lockBtn" disabled>Lock It In 🔒</button>
-        <p class="micro" id="microNote">One pick. No takebacks. Choose wisely.</p>
+      <!-- Loading (until the board arrives) -->
+      <div class="block" id="loadingCard">
+        <div class="loading-ball" aria-hidden="true">⚽</div>
+        <h2 class="question">Loading matches…</h2>
+        <p class="micro">The next World Cup fixtures will appear here.</p>
       </div>
 
-      <!-- Result -->
-      <div class="block hidden" id="resultCard">
-        <div class="result-head">
-          <div class="result-emoji" id="resultEmoji">⏳</div>
-          <div>
-            <h3 id="resultTitle">Locked!</h3>
-            <p id="resultSub">Result drops after the match.</p>
-          </div>
-        </div>
-        <div class="pips" id="pips"></div>
-        <div class="row2">
-          <button class="btn btn-ghost" id="revealBtn">Reveal (demo)</button>
-          <button class="btn btn-go" id="shareBtn">Share 📲</button>
-        </div>
+      <!-- Upcoming: predict the next matches -->
+      <span class="seclabel solo hidden" id="upcomingLabel">⚽ Predict These</span>
+      <div id="upcomingWrap"></div>
+
+      <!-- Recent results -->
+      <span class="seclabel solo hidden" id="recentLabel">🏁 Recent Results</span>
+      <div id="recentWrap"></div>
+
+      <div class="hidden" id="shareRow" style="margin-bottom:16px">
+        <button class="btn btn-go" id="shareBtn" style="width:100%">Share My Results 📲</button>
       </div>
 
       <!-- Ad -->
@@ -562,13 +561,14 @@
   let GOOGLE_CLIENT_ID = localStorage.getItem("go_google_client_id") || "";
 
   let MODE = "offline";        // "online" | "offline"
-  let view = null;             // unified render model both modes populate
-  let pendingPick = null;
+  let pending = true;          // board not loaded yet → show loading
+  let matchBoard = { upcoming: [], recent: [] };
+  let me = null;               // server stats (online); null → use local
+  const pendingPicks = {};     // matchId → selected option (before lock)
   let currentBoard = "friends";
-  let pollTimer = null;
+  let pollTimer = null, cdTimer = null;
   let serverBoard = null;
   let friendsBoard = null;
-  const srv = { ch: null, pick: null, me: null };
 
   /* ---------- identity ---------- */
   // When signed in, go_uid holds the server account id and go_token the session.
@@ -614,259 +614,163 @@
   }
 
   /* =========================================================================
-     OFFLINE state (localStorage demo)
+     Player stats + the match board (next 3 upcoming + last 3 completed)
      ========================================================================= */
-  const defaultState = () => ({ streak:0, best:0, wins:0, played:0, history:[], today:null, baseScore:1000 });
+  const STAT0 = { streak:0, best:0, wins:0, played:0, score:0, history:[] };
+  function statsView() {
+    if (MODE === "online")
+      return me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) } : { ...STAT0 };
+    return { streak:localState.streak, best:localState.best, wins:localState.wins, played:localState.played, score:localState.baseScore, history:(localState.history||[]).slice(-10) };
+  }
+
+  /* ---- OFFLINE demo (no backend): a synthesized board + local picks ---- */
+  const defaultState = () => ({ streak:0, best:0, wins:0, played:0, history:[], picks:{}, baseScore:1000 });
   function loadLocal() {
     try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); return s && typeof s==="object" ? {...defaultState(),...s} : defaultState(); }
     catch { return defaultState(); }
   }
   function saveLocal() { localStorage.setItem(STORE_KEY, JSON.stringify(localState)); }
-  let localState = loadLocal();
-  const offlineChallenge = CHALLENGE_BANK[dayNumber() % CHALLENGE_BANK.length];
+  let localState = loadLocal(); localState.picks = localState.picks || {};
 
-  (function rollDay() {
-    const tk = todayKey();
-    if (localState.today && localState.today.date !== tk) {
-      if (localState.today.locked && !localState.today.revealed) gradeLocal(localState.today, true);
-      localState.today = null; saveLocal();
-    }
-  })();
-
-  function gradeLocal(today, silent = false) {
-    if (today.revealed) return;
-    const correct = today.pick === offlineChallenge.answer;
-    today.correct = correct; today.revealed = true;
-    localState.played += 1;
-    localState.history.push({ date: today.date, correct });
-    if (localState.history.length > 30) localState.history = localState.history.slice(-30);
-    if (correct) { localState.wins+=1; localState.streak+=1; localState.best=Math.max(localState.best,localState.streak); localState.baseScore += offlineChallenge.points + localState.streak*10; }
-    else { localState.streak = 0; }
-    saveLocal();
-    return correct;
-  }
-
-  /* =========================================================================
-     Build the unified VIEW from each source
-     ========================================================================= */
-  // Deterministic fake vote split for the offline demo (so the bars aren't empty).
   function synthVotes(options, seed) {
     let s = (seed || 1) % 2147483647; const rnd = () => (s = (s * 48271) % 2147483647) / 2147483647;
     const counts = {}; let total = 0;
     options.forEach((o) => { const n = 5 + Math.floor(rnd() * 40); counts[o] = n; total += n; });
     return { total, counts };
   }
-
-  function viewFromLocal() {
-    const t = localState.today;
-    return {
-      challenge: offlineChallenge, options: offlineChallenge.options,
-      lockTime: null,
-      myPick: t ? t.pick : null,
-      locked: !!(t && t.locked),
-      resolved: !!(t && t.revealed),
-      iPlayed: !!(t && t.pick),
-      correct: t ? t.correct : null,
-      answer: (t && t.revealed) ? offlineChallenge.answer : null,
-      canReveal: !!(t && t.locked && !t.revealed),
-      lockedOut: false,
-      votes: synthVotes(offlineChallenge.options, dayNumber()),
-      stats: { streak:localState.streak, best:localState.best, wins:localState.wins, played:localState.played, score:localState.baseScore, history:localState.history.slice(-10) },
-    };
+  function demoMatch(b, id, o) {
+    return { id, league:b.league, venue:b.venue, home:b.home, away:b.away, question:b.question,
+      options:b.options, answer:o.answer ?? null, points:b.points,
+      lockTime:o.lockTime, resultTime:o.resultTime, status:o.status, votes:synthVotes(b.options, dayNumber()+id.length) };
+  }
+  function synthBoard() {
+    const now = Date.now(), bank = CHALLENGE_BANK, L = bank.length;
+    const upcoming = [0,1,2].map((k) => demoMatch(bank[(dayNumber()+k) % L], "demo-u"+k,
+      { lockTime:new Date(now+(k+1)*3600000).toISOString(), resultTime:new Date(now+(k+4)*3600000).toISOString(), status:"open" }));
+    const recent = [0,1,2].map((k) => { const b = bank[(dayNumber()-k-1 + L*3) % L];
+      return demoMatch(b, "demo-r"+k, { lockTime:new Date(now-(k+3)*3600000).toISOString(), resultTime:new Date(now-(k+2)*3600000).toISOString(), status:"resolved", answer:b.answer }); });
+    return { upcoming, recent };
   }
 
-  function viewFromServer() {
-    const ch = srv.ch, pick = srv.pick, me = srv.me;
-    const resolved = ch.status === "resolved";          // the MATCH is resolved (whether or not I picked)
-    const locked = ch.status !== "open" || !!(pick && pick.locked);
-    return {
-      challenge: ch, options: ch.options,
-      lockTime: ch.lockTime,
-      myPick: pick ? pick.option : null,
-      locked,
-      resolved,
-      iPlayed: !!(pick && pick.option),                  // did I lock a pick on this match
-      correct: pick ? pick.correct : null,
-      answer: resolved ? ch.answer : null,
-      canReveal: false,                                  // ← no demo reveal in live mode
-      lockedOut: ch.status !== "open" && !(pick && pick.option),
-      votes: ch.votes || { total: 0, counts: {} },
-      stats: me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) }
-                : { streak:0, best:0, wins:0, played:0, score:0, history:[] },
-    };
-  }
-
-  function pendingView() {
-    const me = srv.me;
-    return {
-      pending: true, challenge: null, options: [],
-      lockTime: null, myPick: null, locked: false, resolved: false, correct: null,
-      answer: null, canReveal: false, lockedOut: false,
-      stats: me ? { streak:me.streak, best:me.best, wins:me.wins, played:me.played, score:me.score, history:(me.history||[]).slice(-10) }
-                : { streak:0, best:0, wins:0, played:0, score:0, history:[] },
-    };
-  }
-
-  async function refreshServer() {
-    srv.ch = await api("/api/today");
-    // No real fixture available yet → loading state (no invented match).
-    if (!srv.ch || srv.ch.pending) {
-      srv.pick = null;
-      srv.me = await api(`/api/me/${uid()}`).catch(() => null);
-      view = pendingView();
-      return;
+  async function loadBoard() {
+    if (MODE === "online") {
+      const b = await api(`/api/board?userId=${uid()}`);
+      me = await api(`/api/me/${uid()}`).catch(() => null);
+      if (isAuthed() && me) { if (me.name) localStorage.setItem("go_name", me.name); if (me.inviteCode) localStorage.setItem("go_code", me.inviteCode); }
+      if (!b || b.pending) { pending = true; matchBoard = { upcoming:[], recent:[] }; return; }
+      pending = false; matchBoard = { upcoming: b.upcoming || [], recent: b.recent || [] };
+    } else {
+      pending = false; matchBoard = synthBoard();
+      for (const m of matchBoard.upcoming) { const p = localState.picks[m.id]; m.myPick = p ? { option:p.option, locked:true, correct:null } : null; }
+      for (const m of matchBoard.recent)   { const p = localState.picks[m.id]; m.myPick = p ? { option:p.option, locked:true, correct: p.option===m.answer } : null; }
     }
-    const d = srv.ch.date;
-    const [pick, me] = await Promise.all([
-      api(`/api/pick/${d}/${uid()}`).catch(() => ({ option:null, locked:false, correct:null })),
-      api(`/api/me/${uid()}`).catch(() => null),
-    ]);
-    srv.pick = pick && pick.option ? pick : null;
-    srv.me = me;
-    // keep account display info fresh when signed in
-    if (isAuthed() && me) {
-      if (me.name) localStorage.setItem("go_name", me.name);
-      if (me.inviteCode) localStorage.setItem("go_code", me.inviteCode);
-    }
-    view = viewFromServer();
   }
   async function fetchServerBoard() { try { serverBoard = await api("/api/leaderboard"); } catch { serverBoard = null; } }
 
   /* =========================================================================
-     Renderers (read `view`)
+     Rendering
      ========================================================================= */
   function renderTicker() {
     const tag = MODE === "online" ? "🟢 LIVE" : "🟡 DEMO";
     $("#ticker").innerHTML = `${tag} · ` + SPONSORS[dayNumber() % SPONSORS.length];
   }
 
-  function renderChallenge() {
-    if (view.pending) {
-      $("#leagueTag").textContent = "WORLD CUP 2026";
-      $("#countdown").textContent = "—";
-      $("#venue").textContent = "";
-      $("#matchup").innerHTML = `<div class="loading-ball" aria-hidden="true">⚽</div>`;
-      $("#question").textContent = "Loading next match…";
-      $("#options").innerHTML = "";
-      $("#lockBtn").classList.add("hidden");
-      $("#resultCard").classList.add("hidden");
-      $("#microNote").textContent = "The next World Cup fixture will appear here. Check back soon!";
-      return;
-    }
-    const ch = view.challenge;
-    $("#leagueTag").textContent = ch.league;
-    $("#venue").textContent = "📍 " + ch.venue;
-    $("#question").textContent = ch.question;
-    const crest = (tm) => `<div class="team"><div class="crest" style="background:${tm.color}">${tm.short}</div><div class="team-name">${tm.name}</div></div>`;
-    $("#matchup").innerHTML = crest(ch.home) + `<div class="vs">VS</div>` + crest(ch.away);
+  const crestHTML = (tm) => `<div class="team"><div class="crest" style="background:${tm.color}">${tm.short}</div><div class="team-name">${tm.name}</div></div>`;
+  const esc = (s) => String(s).replace(/"/g, "&quot;");
+  function fmtLock(m) {
+    if (m.status === "resolved") return "✓ DONE";
+    const lock = new Date(m.lockTime).getTime();
+    return Date.now() < lock ? "⏱ " + fmt(lock - Date.now()) : (m.myPick ? "✓ LOCKED" : "🔒 LOCKED");
+  }
+  function votesPct(m, label) { const v = m.votes; return (!v || !v.total) ? 0 : Math.round(((v.counts[label] || 0) / v.total) * 100); }
 
-    $("#options").innerHTML = view.options.map((o,i) =>
-      `<button class="opt" data-opt="${i}"><span class="barfill"></span><span class="lbl">${o}</span><span class="pct"></span><span class="tick"></span></button>`).join("");
-    $("#options").querySelectorAll(".opt").forEach((btn) =>
-      btn.addEventListener("click", () => { if (view.locked) return; onSelect(view.options[btn.dataset.opt]); }));
-
-    restoreUI();
+  function upcomingCardHTML(m) {
+    const locked = m.status !== "open" || !!m.myPick;
+    const showVotes = !!m.myPick;                      // reveal the split after you lock
+    const opts = m.options.map((o) => {
+      const sel = m.myPick && m.myPick.option === o, pct = votesPct(m, o);
+      return `<button class="opt ${locked?"locked":""} ${sel?"selected":""}" data-match="${m.id}" data-opt="${esc(o)}">
+        <span class="barfill" style="width:${showVotes?pct+"%":"0"}"></span>
+        <span class="lbl">${o}</span><span class="pct">${showVotes?pct+"%":""}</span><span class="tick"></span></button>`;
+    }).join("");
+    const action = m.myPick
+      ? `<p class="card-locked">🔒 Locked: ${m.myPick.option} — here's how everyone's voting</p>`
+      : (locked ? `<p class="card-locked">🔒 Picks closed for this match</p>`
+                : `<button class="btn btn-primary lockbtn" data-match="${m.id}" disabled>Lock It In 🔒</button>`);
+    return `<div class="block match-card" data-match="${m.id}">
+      <div class="ch-top"><span class="tag">${m.league}</span><span class="countdown" data-cd="${m.id}">${fmtLock(m)}</span></div>
+      <div class="matchup">${crestHTML(m.home)}<div class="vs">VS</div>${crestHTML(m.away)}</div>
+      <p class="venue">📍 ${m.venue}</p>
+      <h2 class="question">${m.question}</h2>
+      <div class="options">${opts}</div>
+      ${action}</div>`;
   }
 
-  function onSelect(value) {
-    pendingPick = value;
-    document.querySelectorAll("#options .opt").forEach((b) =>
-      b.classList.toggle("selected", b.querySelector(".lbl").textContent === value));
-    $("#lockBtn").disabled = false;
+  function recentCardHTML(m) {
+    let chip = `<span class="myres none">— you didn't pick</span>`;
+    if (m.myPick) chip = m.myPick.correct ? `<span class="myres win">✓ you nailed it</span>` : `<span class="myres loss">✕ you missed</span>`;
+    return `<div class="block recent-card">
+      <div class="ch-top"><span class="tag">${m.league}</span></div>
+      <div class="matchup">${crestHTML(m.home)}<div class="vs">VS</div>${crestHTML(m.away)}</div>
+      <p class="question">${m.question}</p>
+      <p class="resline">${m.answer ? `Result: <b>${m.answer}</b>` : "Result pending…"}</p>
+      <p style="text-align:center">${chip}</p></div>`;
   }
 
-  function markOptions() {
-    document.querySelectorAll("#options .opt").forEach((b) => {
-      const label = b.querySelector(".lbl").textContent;
-      if (view.answer && label === view.answer) { b.classList.add("correct"); b.querySelector(".tick").textContent = "✓"; }
-      if (view.myPick && label === view.myPick && view.answer && label !== view.answer) { b.classList.add("wrong"); b.querySelector(".tick").textContent = "✕"; }
-    });
+  function renderMatches() {
+    const up = matchBoard.upcoming || [], rec = matchBoard.recent || [];
+    $("#loadingCard").classList.toggle("hidden", !pending);
+    $("#upcomingLabel").classList.toggle("hidden", pending || !up.length);
+    $("#recentLabel").classList.toggle("hidden", pending || !rec.length);
+    $("#shareRow").classList.toggle("hidden", pending || !(up.length || rec.length));
+    $("#upcomingWrap").innerHTML = pending ? "" : up.map(upcomingCardHTML).join("");
+    $("#recentWrap").innerHTML = pending ? "" : rec.map(recentCardHTML).join("");
+    if (!pending) bindMatchCards();
   }
 
-  /* Show the community vote split on each option (after the user has locked). */
-  function renderVotes() {
-    const v = view.votes;
-    document.querySelectorAll("#options .opt").forEach((b) => {
-      const bar = b.querySelector(".barfill"), pctEl = b.querySelector(".pct");
-      if (!bar || !pctEl) return;
-      if (!v || !v.total) { bar.style.width = "0"; pctEl.textContent = ""; return; }
-      const label = b.querySelector(".lbl").textContent;
-      const pct = Math.round(((v.counts[label] || 0) / v.total) * 100);
-      bar.style.width = pct + "%";
-      pctEl.textContent = pct + "%";
-    });
+  function bindMatchCards() {
+    $("#upcomingWrap").querySelectorAll(".opt").forEach((b) => b.addEventListener("click", () => {
+      if (b.classList.contains("locked")) return;
+      const mid = b.dataset.match;
+      pendingPicks[mid] = b.dataset.opt;
+      b.closest(".options").querySelectorAll(".opt").forEach((x) => x.classList.toggle("selected", x.dataset.opt === b.dataset.opt));
+      const lb = b.closest(".match-card").querySelector(".lockbtn"); if (lb) lb.disabled = false;
+    }));
+    $("#upcomingWrap").querySelectorAll(".lockbtn").forEach((b) => b.addEventListener("click", () => lockMatch(b.dataset.match)));
   }
 
-  function restoreUI() {
-    if (view.locked) {
-      document.querySelectorAll("#options .opt").forEach((b) => {
-        b.classList.add("locked");
-        b.classList.toggle("selected", b.querySelector(".lbl").textContent === view.myPick);
-      });
-      $("#lockBtn").classList.add("hidden");
-      if (view.resolved) markOptions();        // green/red marks once the match is graded
-      renderVotes();                           // show the community split (everyone, once locked)
-      if (view.iPlayed || view.resolved) {
-        $("#resultCard").classList.remove("hidden");
-        $("#microNote").textContent = view.iPlayed
-          ? "You're locked in. Here's how everyone's voting 👇"
-          : "Match locked. Here's how everyone voted 👇";
-        renderResult();
-      } else {
-        $("#resultCard").classList.add("hidden");
-        $("#microNote").textContent = "Picks are locked — come back tomorrow.";
+  async function lockMatch(matchId) {
+    const opt = pendingPicks[matchId];
+    if (!opt) return;
+    if (MODE === "online") {
+      try {
+        await api("/api/pick", { method:"POST", body: JSON.stringify({ matchId, option:opt, userId:uid(), name:myName() }) });
+        toast("Locked in 🔒 Good luck!");
+        await loadBoard(); renderAll(); startPolling();
+      } catch (e) {
+        if (e.status === 409) { await loadBoard(); renderAll(); toast("⚠ Picks are locked for this match"); }
+        else toast("⚠ " + (e.body?.error || "Couldn't reach the server"));
       }
     } else {
-      $("#lockBtn").classList.remove("hidden");
-      $("#lockBtn").disabled = !pendingPick;
-      $("#resultCard").classList.add("hidden");
-      $("#microNote").textContent = "One pick. No takebacks. Choose wisely.";
+      localState.picks[matchId] = { option:opt, ts:Date.now() }; saveLocal();
+      await loadBoard(); renderAll(); toast("Locked in 🔒 (demo)");
     }
   }
 
-  function renderResult() {
-    const reveal = $("#revealBtn");
-    if (view.resolved) {
-      if (view.iPlayed) {
-        $("#resultEmoji").textContent = view.correct ? "✅" : "❌";
-        $("#resultTitle").textContent = view.correct ? "Nailed It!" : "So Close!";
-        $("#resultSub").textContent = view.correct ? `Streak now ${view.stats.streak} 🔥` : `Result: ${view.answer}. Back tomorrow!`;
-      } else {
-        $("#resultEmoji").textContent = "🏁";
-        $("#resultTitle").textContent = "Full Time";
-        $("#resultSub").textContent = `Result: ${view.answer}. You didn't pick — back tomorrow!`;
-      }
-      reveal.classList.add("hidden");
-    } else {
-      $("#resultEmoji").textContent = "⏳";
-      $("#resultTitle").textContent = "Locked!";
-      if (view.canReveal) { $("#resultSub").textContent = "Tap reveal to simulate the result."; reveal.classList.remove("hidden"); }
-      else { $("#resultSub").textContent = "Result drops automatically after the match."; reveal.classList.add("hidden"); }
-    }
-    renderPips();
+  function pipHTML() {
+    const hist = statsView().history;
+    if (!hist.length) return '<span style="font-size:12px;font-weight:700;opacity:.6">No picks yet — predict a match!</span>';
+    return hist.map((h) => `<div class="pip ${h.correct?"hit":"miss"}">${h.correct?"⚽":"·"}</div>`).join("");
   }
-
-  function pipHTML(includeToday) {
-    const hist = view.stats.history;
-    let html = hist.map((h) => `<div class="pip ${h.correct?"hit":"miss"}">${h.correct?"⚽":"·"}</div>`).join("");
-    if (includeToday) html += `<div class="pip today">${view.resolved ? (view.correct?"⚽":"·") : "?"}</div>`;
-    return html;
-  }
-  function renderPips() {
-    $("#pips").innerHTML = pipHTML(true);
-    $("#pipsStats").innerHTML = view.stats.history.length ? pipHTML(false) : '<span style="font-size:12px;font-weight:700;opacity:.6">No picks yet — play today!</span>';
-  }
-
+  function renderPips() { const p = $("#pipsStats"); if (p) p.innerHTML = pipHTML(); }
   function renderStreakChip(pulse) {
-    $("#streakCount").textContent = view.stats.streak;
+    $("#streakCount").textContent = statsView().streak;
     if (pulse) { const c = $("#streakChip"); c.classList.remove("pulse"); void c.offsetWidth; c.classList.add("pulse"); }
   }
-
   function renderStats() {
-    $("#statStreak").textContent = view.stats.streak;
-    $("#statBest").textContent = view.stats.best;
-    $("#statWins").textContent = view.stats.wins;
-    $("#statRate").textContent = view.stats.played ? Math.round((view.stats.wins/view.stats.played)*100)+"%" : "—";
+    const s = statsView();
+    $("#statStreak").textContent = s.streak; $("#statBest").textContent = s.best; $("#statWins").textContent = s.wins;
+    $("#statRate").textContent = s.played ? Math.round((s.wins/s.played)*100)+"%" : "—";
     renderPips();
   }
 
@@ -877,19 +781,20 @@
 
   function renderBoard(which) {
     currentBoard = which;
-    const me = { name:"YOU", avatar:"🧢", streak:view.stats.streak, score:view.stats.score, me:true };
+    const s = statsView();
+    const meRow = { name:"YOU", avatar:"🧢", streak:s.streak, score:s.score, me:true };
     let rows;
     if (MODE === "online" && which === "global" && serverBoard) {
       rows = mapServerRows(serverBoard);
-      if (!rows.some((r) => r.me)) rows.push(me);
+      if (!rows.some((r) => r.me)) rows.push(meRow);
     } else if (MODE === "online" && which === "friends" && isAuthed() && friendsBoard) {
       rows = mapServerRows(friendsBoard);
-      if (!rows.some((r) => r.me)) rows.push(me);
+      if (!rows.some((r) => r.me)) rows.push(meRow);
     } else {
       // demo seeds (offline, or signed-out friends tab)
       rows = SEED_FRIENDS.map((f) => ({...f}));
       if (which === "global") rows = rows.map((f,i) => ({...f, score: f.score + 1500 + i*130}));
-      rows.push(me);
+      rows.push(meRow);
     }
     rows.sort((a,b) => b.score - a.score);
     $("#board").innerHTML = rows.map((r,i) => `
@@ -932,60 +837,30 @@
   }
 
   function renderAll() {
-    renderTicker(); renderChallenge(); renderStats(); renderStreakChip(false); renderBoard(currentBoard); tickCountdown(); renderAuthUI();
+    renderTicker(); renderMatches(); renderStats(); renderStreakChip(false); renderBoard(currentBoard); renderAuthUI(); tickCountdowns();
   }
 
-  /* ---------- Actions ---------- */
-  async function onLock() {
-    if (!pendingPick || view.locked) return;
-    if (MODE === "online") {
-      $("#lockBtn").disabled = true;
-      try {
-        await api("/api/pick", { method:"POST", body: JSON.stringify({ userId: uid(), name: myName(), option: pendingPick }) });
-        await refreshServer(); renderAll(); toast("Locked in 🔒 Good luck!"); startPolling();
-      } catch (e) {
-        if (e.status === 409) { await refreshServer(); renderAll(); toast("⚠ Picks are locked for this match"); }
-        else { $("#lockBtn").disabled = false; toast("⚠ " + (e.body?.error || "Couldn't reach the server")); }
-      }
-    } else {
-      localState.today = { date: todayKey(), pick: pendingPick, locked:true, revealed:false, correct:null };
-      saveLocal(); view = viewFromLocal(); renderAll(); toast("Locked in 🔒 Good luck!");
-    }
-  }
-
-  function onReveal() {            // offline demo only
-    if (MODE !== "offline" || !localState.today || !localState.today.locked) return;
-    const correct = gradeLocal(localState.today, false);
-    view = viewFromLocal(); renderAll(); renderStreakChip(true);
-    toast(correct ? `CORRECT! +${view.challenge.points} pts 🎉` : "MISSED! Streak reset 💔");
-  }
-
+  /* ---------- Live refresh: re-pull the board so locked matches resolve and
+     vote splits update. Server caches the upstream fixtures, so this is cheap. */
   function startPolling() {
     stopPolling();
     if (MODE !== "online") return;
     pollTimer = setInterval(async () => {
-      const was = view.resolved;
-      try { await refreshServer(); } catch { return; }
+      const before = JSON.stringify((matchBoard.recent || []).map((m) => m.id + m.status));
+      try { await loadBoard(); } catch { return; }
       renderAll();
-      if (view.resolved && !was) {
-        renderStreakChip(true);
-        toast(view.iPlayed ? (view.correct ? "CORRECT! 🎉 +points" : "MISSED! Streak reset 💔")
-                           : `🏁 Full time — ${view.answer} won`);
-        if (currentBoard === "global") { await fetchServerBoard(); renderBoard("global"); }
-        stopPolling();
-      }
-    }, 15000);
+      const after = JSON.stringify((matchBoard.recent || []).map((m) => m.id + m.status));
+      if (after !== before) { renderStreakChip(true); if (currentBoard === "global") { await fetchServerBoard(); renderBoard("global"); } }
+    }, 20000);
   }
   function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
   /* ---------- Share ---------- */
   function buildShareText() {
-    const hist = view.stats.history.slice(-7).map((h) => h.correct?"🟩":"🟥").join("");
-    const matchLine = view.challenge
-      ? `${view.challenge.home.short} v ${view.challenge.away.short}: ` +
-        (view.resolved ? (view.correct?"✅ Called it!":"❌ Missed it.") : (view.myPick ? "🔒 Locked in." : "👀 Predicting…"))
-      : "Next match loading…";
-    return `⚽ GOAL ORACLE — World Cup 2026 — ${todayKey()}\n${matchLine}\n🔥 Streak ${view.stats.streak} · Best ${view.stats.best}\n${hist || "▫️▫️▫️"}\n\nPlay daily 👉 goaloracle.app`;
+    const s = statsView();
+    const recent = (matchBoard.recent || []).slice(0, 5).map((m) => m.myPick ? (m.myPick.correct ? "🟩" : "🟥") : "⬜").join("");
+    const rate = s.played ? Math.round((s.wins / s.played) * 100) : 0;
+    return `⚽ GOAL ORACLE — World Cup 2026\n🔥 Streak ${s.streak} · Best ${s.best} · ${rate}% hit rate\nRecent: ${recent || "—"}\n\nPredict the next matches 👉 goaloracle.app`;
   }
   async function shareResult() {
     const text = buildShareText();
@@ -994,21 +869,12 @@
     catch { toast("Share:\n" + text); }
   }
 
-  /* ---------- Countdown ---------- */
-  function tickCountdown() {
-    const el = $("#countdown");
-    if (!view) return;
-    if (view.pending) { el.textContent = "—"; return; }
-    if (view.resolved) { el.textContent = "✓ RESOLVED"; return; }
-    if (MODE === "online") {
-      if (!view.lockTime) { el.textContent = ""; return; }
-      const lock = new Date(view.lockTime).getTime();
-      el.textContent = Date.now() < lock ? "⏱ " + fmt(lock - Date.now()) : (view.myPick ? "✓ LOCKED" : "🔒 LOCKED");
-    } else {
-      if (view.locked) { el.textContent = "✓ LOCKED"; return; }
-      const now = new Date(); const end = new Date(now.getFullYear(), now.getMonth(), now.getDate()+1, 0,0,0);
-      el.textContent = "⏱ " + fmt(end - now);
-    }
+  /* ---------- Countdowns (one per upcoming card) ---------- */
+  function tickCountdowns() {
+    (matchBoard.upcoming || []).forEach((m) => {
+      const el = document.querySelector(`[data-cd="${m.id}"]`);
+      if (el) el.textContent = fmtLock(m);
+    });
   }
 
   /* ---------- Nav / toast / modal ---------- */
@@ -1041,9 +907,8 @@
     localStorage.setItem("go_name", r.name || "Player");
     localStorage.setItem("go_code", r.inviteCode || "");
     closeAuth();
-    await refreshServer(); await fetchServerBoard(); await fetchFriendsBoard();
-    renderAll();
-    if (view.locked && !view.resolved) startPolling();
+    await loadBoard(); await fetchServerBoard(); await fetchFriendsBoard();
+    renderAll(); startPolling();
     toast("Signed in ✓ Welcome, " + (r.name || "Player"));
   }
 
@@ -1097,12 +962,10 @@
 
   /* ---------- Init ---------- */
   function bindEvents() {
-    $("#lockBtn").addEventListener("click", onLock);
-    $("#revealBtn").addEventListener("click", onReveal);
     $("#shareBtn").addEventListener("click", shareResult);
     $("#shareBtn2").addEventListener("click", shareResult);
     $("#streakChip").addEventListener("click", () =>
-      toast(view.stats.streak ? `🔥 ${view.stats.streak}-day streak — keep it alive!` : "Make a pick to start your streak 🔥"));
+      toast(statsView().streak ? `🔥 ${statsView().streak}-day streak — keep it alive!` : "Predict a match to start your streak 🔥"));
     $("#inviteBtn").addEventListener("click", async () => {
       const code = localStorage.getItem("go_code") || uid().slice(-5);
       const link = (location.origin !== "null" ? location.origin + location.pathname : "https://goaloracle.app") + "?ref=" + code;
@@ -1146,25 +1009,25 @@
       const health = await api("/api/health", {}, 2500);
       if (health && health.googleClientId && !localStorage.getItem("go_google_client_id")) GOOGLE_CLIENT_ID = health.googleClientId;
       MODE = "online";
-      await refreshServer();
+      await loadBoard();
       await fetchServerBoard();
       if (isAuthed()) await fetchFriendsBoard();
       renderAll();
-      if (view.locked && !view.resolved) startPolling();
+      startPolling();
     } catch {
       MODE = "offline";
-      view = viewFromLocal();   // standalone (no backend) → local demo bank
+      await loadBoard();        // standalone (no backend) → synthesized demo board
       renderAll();
     }
   }
 
   function init() {
-    // Paint a loading state first (no invented match), then resolve live/offline.
-    view = pendingView();
+    // Paint a loading state first, then resolve live/offline.
+    pending = true;
     renderAll();
     bindEvents();
     if (!localStorage.getItem("go_seen")) { openModal(); localStorage.setItem("go_seen","1"); }
-    setInterval(tickCountdown, 1000);
+    cdTimer = setInterval(tickCountdowns, 1000);
     tryOnline();
   }
   document.addEventListener("DOMContentLoaded", init);
