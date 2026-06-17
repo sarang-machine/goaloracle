@@ -71,6 +71,7 @@ async function ensureToday() {
     // No real fixture yet (no key, or no upcoming match) → don't invent one.
     // Returning null makes /api/today report "pending" so the UI shows loading.
     if (!built) return null;
+    built.id = key;   // store under today's date key so the next lookup finds it (no re-fetch loop)
   } else {
     built = buildChallenge();   // cricket uses its static bank
   }
@@ -161,7 +162,7 @@ app.post("/api/pick", async (req, res) => {
   const existing = await getPick(ch.id, userId);
   if (existing?.locked) return res.status(409).json({ error: "you already locked a pick" });
 
-  if (name) { const u = await getUser(userId); if (!u.email) { u.name = name; } } // don't let anon overwrite a verified name
+  if (name) { const u = await getUser(userId); if (!u.email) { u.name = String(name).replace(/[<>]/g, "").slice(0, 24); } } // sanitize + don't overwrite a verified name
   const pick = await savePick(ch.id, userId, { option, locked: true, ts: new Date().toISOString(), correct: null });
   res.json({ ok: true, matchId: ch.id, pick });
 });
@@ -238,7 +239,7 @@ app.get("/api/me/:userId", async (req, res) => {
   const u = await getUser(req.params.userId);
   res.json({ userId: u.userId, name: u.name, streak: u.streak, best: u.best, wins: u.wins, played: u.played,
     score: u.score, history: u.history.slice(-30),
-    inviteCode: u.inviteCode, isAccount: !!(u.phone || u.googleId), friendCount: (u.friends || []).length });
+    inviteCode: u.inviteCode, isAccount: !!(u.email || u.googleId), friendCount: (u.friends || []).length });
 });
 
 /* A user's pick for a date — lets the front-end restore state on reload. */

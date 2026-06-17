@@ -11,6 +11,8 @@ import { getChallenge, saveChallenge, picksForMatch, getUser, saveUser, allChall
 import { getProvider } from "./providers.js";
 import { liveStatus } from "./challenges.js";
 
+const inFlight = new Set();   // guard: only one resolve per match id at a time (cron + app-open can overlap)
+
 /* Resolve a single match by its id (apiMatchId / challenge id). */
 export async function resolveMatch(id) {
   const ch = await getChallenge(id);
@@ -21,7 +23,14 @@ export async function resolveMatch(id) {
   if (Date.now() < new Date(ch.resultTime).getTime()) {
     return { id, ok: false, reason: "too early (match not finished)" };
   }
+  if (inFlight.has(id)) return { id, ok: false, reason: "resolve already in progress" };
+  inFlight.add(id);
+  try {
+    return await grade(ch, id);
+  } finally { inFlight.delete(id); }
+}
 
+async function grade(ch, id) {
   let result;
   try {
     result = await getProvider().getResult(ch);
@@ -29,6 +38,7 @@ export async function resolveMatch(id) {
     return { id, ok: false, reason: `provider error: ${err.message}` };
   }
   if (!result || !result.answer) return { id, ok: false, reason: "result not available yet" };
+  if (ch.status === "resolved") return { id, ok: true, reason: "already resolved", graded: 0 };  // re-check after the await
 
   // ---- Persist the answer ----
   ch.answer = result.answer;

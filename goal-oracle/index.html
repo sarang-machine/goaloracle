@@ -641,7 +641,8 @@
   function demoMatch(b, id, o) {
     return { id, league:b.league, venue:b.venue, home:b.home, away:b.away, question:b.question,
       options:b.options, answer:o.answer ?? null, points:b.points,
-      lockTime:o.lockTime, resultTime:o.resultTime, status:o.status, votes:synthVotes(b.options, dayNumber()+id.length) };
+      lockTime:o.lockTime, resultTime:o.resultTime, status:o.status,
+      votes:synthVotes(b.options, dayNumber() + id.split("").reduce((a,c)=>a+c.charCodeAt(0),0)) };
   }
   function synthBoard() {
     const now = Date.now(), bank = CHALLENGE_BANK, L = bank.length;
@@ -675,8 +676,11 @@
     $("#ticker").innerHTML = `${tag} · ` + SPONSORS[dayNumber() % SPONSORS.length];
   }
 
-  const crestHTML = (tm) => `<div class="team"><div class="crest" style="background:${tm.color}">${tm.short}</div><div class="team-name">${tm.name}</div></div>`;
-  const esc = (s) => String(s).replace(/"/g, "&quot;");
+  // Escape ALL dynamic strings before inserting as HTML (names, teams, leagues,
+  // options, answers can be user- or provider-supplied → prevent stored XSS).
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>"']/g, (c) => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" }[c]));
+  const safeColor = (c) => /^#[0-9a-fA-F]{3,8}$/.test(String(c || "")) ? c : "#2d3b4d";
+  const crestHTML = (tm) => `<div class="team"><div class="crest" style="background:${safeColor(tm.color)}">${esc(tm.short)}</div><div class="team-name">${esc(tm.name)}</div></div>`;
   function fmtLock(m) {
     if (m.status === "resolved") return "✓ DONE";
     const lock = new Date(m.lockTime).getTime();
@@ -687,21 +691,22 @@
   function upcomingCardHTML(m) {
     const locked = m.status !== "open" || !!m.myPick;
     const showVotes = !!m.myPick;                      // reveal the split after you lock
+    const chosen = (m.myPick && m.myPick.option) || pendingPicks[m.id];   // keep selection across re-render
     const opts = m.options.map((o) => {
-      const sel = m.myPick && m.myPick.option === o, pct = votesPct(m, o);
-      return `<button class="opt ${locked?"locked":""} ${sel?"selected":""}" data-match="${m.id}" data-opt="${esc(o)}">
+      const sel = chosen === o, pct = votesPct(m, o);
+      return `<button class="opt ${locked?"locked":""} ${sel?"selected":""}" data-match="${esc(m.id)}" data-opt="${esc(o)}">
         <span class="barfill" style="width:${showVotes?pct+"%":"0"}"></span>
-        <span class="lbl">${o}</span><span class="pct">${showVotes?pct+"%":""}</span><span class="tick"></span></button>`;
+        <span class="lbl">${esc(o)}</span><span class="pct">${showVotes?pct+"%":""}</span><span class="tick"></span></button>`;
     }).join("");
     const action = m.myPick
-      ? `<p class="card-locked">🔒 Locked: ${m.myPick.option} — here's how everyone's voting</p>`
+      ? `<p class="card-locked">🔒 Locked: ${esc(m.myPick.option)} — here's how everyone's voting</p>`
       : (locked ? `<p class="card-locked">🔒 Picks closed for this match</p>`
-                : `<button class="btn btn-primary lockbtn" data-match="${m.id}" disabled>Lock It In 🔒</button>`);
-    return `<div class="block match-card" data-match="${m.id}">
-      <div class="ch-top"><span class="tag">${m.league}</span><span class="countdown" data-cd="${m.id}">${fmtLock(m)}</span></div>
+                : `<button class="btn btn-primary lockbtn" data-match="${esc(m.id)}" ${pendingPicks[m.id]?"":"disabled"}>Lock It In 🔒</button>`);
+    return `<div class="block match-card" data-match="${esc(m.id)}">
+      <div class="ch-top"><span class="tag">${esc(m.league)}</span><span class="countdown" data-cd="${esc(m.id)}">${fmtLock(m)}</span></div>
       <div class="matchup">${crestHTML(m.home)}<div class="vs">VS</div>${crestHTML(m.away)}</div>
-      <p class="venue">📍 ${m.venue}</p>
-      <h2 class="question">${m.question}</h2>
+      <p class="venue">📍 ${esc(m.venue)}</p>
+      <h2 class="question">${esc(m.question)}</h2>
       <div class="options">${opts}</div>
       ${action}</div>`;
   }
@@ -710,10 +715,10 @@
     let chip = `<span class="myres none">— you didn't pick</span>`;
     if (m.myPick) chip = m.myPick.correct ? `<span class="myres win">✓ you nailed it</span>` : `<span class="myres loss">✕ you missed</span>`;
     return `<div class="block recent-card">
-      <div class="ch-top"><span class="tag">${m.league}</span></div>
+      <div class="ch-top"><span class="tag">${esc(m.league)}</span></div>
       <div class="matchup">${crestHTML(m.home)}<div class="vs">VS</div>${crestHTML(m.away)}</div>
-      <p class="question">${m.question}</p>
-      <p class="resline">${m.answer ? `Result: <b>${m.answer}</b>` : "Result pending…"}</p>
+      <p class="question">${esc(m.question)}</p>
+      <p class="resline">${m.answer ? `Result: <b>${esc(m.answer)}</b>` : "Result pending…"}</p>
       <p style="text-align:center">${chip}</p></div>`;
   }
 
@@ -800,9 +805,9 @@
     $("#board").innerHTML = rows.map((r,i) => `
       <li class="lrow ${r.me?"me":""}">
         <span class="lrank">${i===0?"🥇":i===1?"🥈":i===2?"🥉":"#"+(i+1)}</span>
-        <span class="lav">${r.avatar||"⚽"}</span>
-        <span class="lwho"><b>${r.name}</b><span>🔥 ${r.streak} streak</span></span>
-        <span class="lpts">${(r.score||0).toLocaleString()}</span>
+        <span class="lav">${esc(r.avatar||"⚽")}</span>
+        <span class="lwho"><b>${esc(r.name)}</b><span>🔥 ${Number(r.streak)||0} streak</span></span>
+        <span class="lpts">${(Number(r.score)||0).toLocaleString()}</span>
       </li>`).join("");
   }
 
