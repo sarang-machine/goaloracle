@@ -75,7 +75,8 @@ function publicChallenge(ch) {
   return { ...ch, answer: status === "resolved" ? answer : null };
 }
 
-app.get("/api/health", (_req, res) => res.json({ ok: true, provider: activeProviderName() }));
+app.get("/api/health", (_req, res) => res.json({ ok: true, provider: activeProviderName(),
+  googleClientId: process.env.GOOGLE_CLIENT_ID || null }));   // public — client IDs aren't secret
 
 app.get("/api/today", async (_req, res) => {
   const ch = await ensureToday();

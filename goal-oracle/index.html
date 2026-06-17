@@ -567,7 +567,9 @@
   })();
   // Set this (or localStorage.go_google_client_id) to enable real Google One Tap.
   // Left blank → a "Continue with Google" demo button that works without setup.
-  const GOOGLE_CLIENT_ID = localStorage.getItem("go_google_client_id") || "";
+  // Google client id: provided by the server (so it works for every visitor),
+  // with a localStorage override for local testing.
+  let GOOGLE_CLIENT_ID = localStorage.getItem("go_google_client_id") || "";
 
   let MODE = "offline";        // "online" | "offline"
   let view = null;             // unified render model both modes populate
@@ -1172,7 +1174,8 @@
      Starts from a loading view so we never flash an invented match. */
   async function tryOnline() {
     try {
-      await api("/api/health", {}, 2500);
+      const health = await api("/api/health", {}, 2500);
+      if (health && health.googleClientId && !localStorage.getItem("go_google_client_id")) GOOGLE_CLIENT_ID = health.googleClientId;
       MODE = "online";
       await refreshServer();
       await fetchServerBoard();
